@@ -1,0 +1,4 @@
+/* In the app this comes from next/font in app/layout.tsx. */
+:root {
+  --font-lato: "Lato";
+}
