@@ -164,7 +164,8 @@ export function FloatingAIChat() {
               />
             }
           >
-            <span aria-hidden className="absolute inset-0.5 rounded-full bg-card" />
+            {/* MetalFx strips the button's own shadow and border, so the edge lives on this surface. */}
+            <span aria-hidden className="absolute inset-0.5 rounded-full bg-card shadow-lg ring-1 ring-foreground/10" />
             <ThinkingOrb state={chat.replying ? "working" : "composing"} size={64} theme="auto" className="relative" />
           </PopoverTrigger>
         </MetalFx>
