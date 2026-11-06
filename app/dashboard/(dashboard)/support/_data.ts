@@ -1,12 +1,6 @@
-export interface HelpArticle {
-  id: string;
-  category: string;
-  title: string;
-  summary: string;
-  body: string[];
-  href: string | null;
-  updatedAt: string;
-}
+import type { HelpArticle } from "@/constant/schemas/support";
+
+export type { HelpArticle } from "@/constant/schemas/support";
 
 // Sample help content. Replace with published CMS articles when available.
 export const HELP_ARTICLES: HelpArticle[] = [

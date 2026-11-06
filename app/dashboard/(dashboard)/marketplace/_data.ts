@@ -1,15 +1,7 @@
 // Illustrative offerings. Replace with the marketplace API when the backend is available.
-export interface Investment {
-  id: string;
-  name: string;
-  location: string;
-  image: string;
-  annualRoi: number;
-  tenure: number;
-  unitPrice: number;
-  totalUnits: number;
-  allocatedUnits: number;
-}
+import type { Investment } from "@/constant/schemas/marketplace";
+
+export type { Investment } from "@/constant/schemas/marketplace";
 
 export const WALLET_BALANCE = 1_250_000;
 export const AGREEMENT_VERSION = "1.3";

@@ -10,8 +10,11 @@ import { TextField } from "@/components/primitives/text-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { marketQuestionFormSchema, recommendationPreferencesFormSchema } from "@/constant/schemas/insights";
+import { zodResolver } from "@hookform/resolvers/zod";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+import { useForm, useWatch } from "react-hook-form";
 
 import { naira } from "../../marketplace/_data";
 import { InvestmentFacts, InvestmentHeading, InvestmentPanel } from "../../marketplace/_investment-parts";
@@ -32,17 +35,29 @@ const COLUMNS: ColumnDef<RecommendationRecord>[] = [
 ];
 
 export function Client$InvestWithAIPage() {
-  const [draft, setDraft] = useState<Preferences>(DEFAULT_PREFERENCES);
+  const preferenceForm = useForm({
+    resolver: zodResolver(recommendationPreferencesFormSchema),
+    defaultValues: DEFAULT_PREFERENCES,
+  });
+  const current = useWatch({ control: preferenceForm.control });
+  const draft: Preferences = {
+    budget: current.budget ?? DEFAULT_PREFERENCES.budget,
+    horizon: current.horizon ?? DEFAULT_PREFERENCES.horizon,
+    risk: current.risk ?? DEFAULT_PREFERENCES.risk,
+    location: current.location ?? DEFAULT_PREFERENCES.location,
+    portfolio: current.portfolio ?? DEFAULT_PREFERENCES.portfolio,
+  };
   const [preferences, setPreferences] = useState<Preferences>(DEFAULT_PREFERENCES);
   const [history, setHistory] = useState(RECOMMENDATION_HISTORY);
-  const [question, setQuestion] = useState("");
-  const [questionError, setQuestionError] = useState("");
+  const questionForm = useForm({ resolver: zodResolver(marketQuestionFormSchema), defaultValues: { question: "" } });
+  const question = useWatch({ control: questionForm.control, name: "question" });
+  const questionError = questionForm.formState.errors.question?.message;
   const [updated, setUpdated] = useState(false);
   const [savedOnly, setSavedOnly] = useState(false);
   const recommendations = matchInvestments(preferences);
   const change = (key: keyof Preferences, value: string | boolean) =>
-    setDraft((current) => ({ ...current, [key]: value }));
-  const update = () => {
+    preferenceForm.setValue(key, value, { shouldValidate: true });
+  const update = preferenceForm.handleSubmit((draft) => {
     setPreferences({ ...draft });
     setUpdated(true);
     const first = matchInvestments(draft)[0];
@@ -61,13 +76,8 @@ export function Client$InvestWithAIPage() {
       },
       ...current,
     ]);
-  };
-  const ask = () => {
-    if (!question.trim()) {
-      setQuestionError("Enter a market question.");
-      return;
-    }
-    setQuestionError("");
+  });
+  const ask = questionForm.handleSubmit(({ question }) => {
     AppModal.open({
       title: "Illustrative market answer",
       description: question.trim(),
@@ -88,7 +98,7 @@ export function Client$InvestWithAIPage() {
       ),
       primaryButton: { children: "Close explanation" },
     });
-  };
+  });
   return (
     <>
       <InvestmentHeading title="Invest with AI">
@@ -230,8 +240,7 @@ export function Client$InvestWithAIPage() {
               label="Your question"
               value={question}
               onChange={(value) => {
-                setQuestion(value);
-                setQuestionError("");
+                questionForm.setValue("question", value, { shouldValidate: true });
               }}
               placeholder="What are the key risks in Lekki?"
               maxLength={500}

@@ -1,29 +1,11 @@
-import { z } from "zod";
+import type { ChatAnswer, Conversation } from "@/constant/schemas/ai";
 
 import { HOLDINGS } from "../investments/_data";
 import { INVESTMENTS, WALLET_BALANCE, naira } from "../marketplace/_data";
 
-const linkSchema = z.object({
-  label: z.string(),
-  href: z.enum([
-    "/investments",
-    "/marketplace",
-    "/wallet",
-    "/settings/security",
-    "/support",
-    "/ask-ai/explore",
-    "/market-insights",
-  ]),
-});
-const answerSchema = z.object({
-  topic: z.enum(["portfolio", "comparison", "wallet", "security", "market", "help"]),
-  title: z.string(),
-  text: z.string(),
-  points: z.array(z.string()),
-  links: z.array(linkSchema),
-  source: z.string(),
-});
-export type ChatAnswer = z.infer<typeof answerSchema>;
+export { conversationSchema, chatStoreSchema } from "@/constant/schemas/ai";
+
+export type { ChatAnswer, Conversation } from "@/constant/schemas/ai";
 
 // ponytail: answers are prepared locally, so the thinking steps and typing are paced by a timer.
 // When a live model is connected, drive them from its tool progress and token stream instead.
@@ -40,28 +22,6 @@ export const REPLY_STEPS: Record<ChatAnswer["topic"], string[]> = {
   market: ["Reading the sample market series", "Checking the forecast caveats"],
   help: ["Matching your question", "Finding what I can help with"],
 };
-export const conversationSchema = z.object({
-  id: z.string(),
-  title: z.string().min(1).max(80),
-  createdAt: z.iso.datetime(),
-  updatedAt: z.iso.datetime(),
-  pinned: z.boolean(),
-  messages: z.array(
-    z.object({
-      id: z.string(),
-      role: z.enum(["user", "assistant"]),
-      text: z.string(),
-      answer: answerSchema.optional(),
-      feedback: z.enum(["helpful", "unhelpful"]).optional(),
-      feedbackReason: z.string().optional(),
-    })
-  ),
-});
-export type Conversation = z.infer<typeof conversationSchema>;
-export const chatStoreSchema = z.object({
-  activeId: z.string().nullable(),
-  conversations: z.array(conversationSchema),
-});
 export const STARTERS = [
   {
     title: "Summarise my portfolio",

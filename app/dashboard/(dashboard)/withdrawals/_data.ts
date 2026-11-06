@@ -1,18 +1,8 @@
 // ponytail: mock data from the Figma frame. Replace with an API call once the backend exists.
+import type { Credit } from "@/constant/schemas/finance";
 
-export type CreditStatus = "Active" | "Pause" | "Cancel";
-
-export interface Credit {
-  key: string;
-  title: string;
-  card: string;
-  /** The "Date & Time" column. The frame shows a date and time on some rows and a rate on others. */
-  detail: string;
-  detailNote: string;
-  balance: number;
-  interest: string;
-  status: CreditStatus;
-}
+export type { Credit } from "@/constant/schemas/finance";
+export type CreditStatus = Credit["status"];
 
 const DESIGN_ROWS: [string, string, string, number, string, CreditStatus][] = [
   ["John Snow - Metal", "21/08/2024", "03:05 PM", 95200, "321,121.32", "Active"],

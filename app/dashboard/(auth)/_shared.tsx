@@ -11,42 +11,43 @@ import Link from "next/link";
 import { AuthSuccessIcon } from "./_success-icon";
 
 const BANNER_STYLES =
-  "mx-4 mt-4 flex items-center gap-4 rounded-3xl bg-[linear-gradient(90deg,#8C8DE3_0%,#989AD9_100%)] px-5 py-5 text-white lg:mx-6 lg:mt-6.5 lg:rounded-[24px] lg:px-7.5";
+  "mx-4 mt-4 flex animate-in items-center gap-3 self-center bg-[#121212] text-white duration-500 fade-in slide-in-from-top-2 motion-reduce:animate-none lg:mx-6 lg:mt-6";
 
 const INVESTOR_AVATARS = ["investor-avatar-01", "investor-avatar-02", "investor-avatar-03"];
 
 export function AuthInvestorsBanner() {
   return (
-    <aside className={BANNER_STYLES}>
+    <aside className={cn(BANNER_STYLES, "rounded-full py-1.5 pr-4 pl-1.5")}>
       <div className="flex shrink-0">
         {INVESTOR_AVATARS.map((name) => (
           <Image
             key={name}
             src={`/assets/images/investors/${name}.jpg`}
             alt=""
-            width={48}
-            height={48}
-            className="-ml-3.5 size-12 rounded-full border-2 border-white/70 object-cover first:ml-0"
+            width={28}
+            height={28}
+            className="-ml-2 size-7 rounded-full object-cover ring-2 ring-[#121212] first:ml-0"
           />
         ))}
       </div>
-      <div className="min-w-0">
-        <p className="text-lg/6 font-semibold lg:text-xl/7">Join with 99K+ Investors</p>
-        <p className="text-sm/5 lg:text-base/6">Let&apos;s make a good impact with your creations</p>
-      </div>
+      <p className="text-sm font-semibold whitespace-nowrap">
+        Join with <span className="text-accent">99K+</span> Investors
+      </p>
+      <span aria-hidden className="hidden h-3.5 w-px bg-white/20 xl:block" />
+      <p className="hidden text-xs whitespace-nowrap text-white/60 xl:block">
+        Let&apos;s make a good impact with your creations
+      </p>
     </aside>
   );
 }
 
 export function AuthQuoteBanner() {
   return (
-    <aside className={BANNER_STYLES}>
-      <p className="min-w-0 flex-1 text-sm/6 lg:text-base/6">
-        &ldquo;Choosing a hard to guess, but easy to remember password is important&rdquo; - Kevin Mitnick
+    <aside className={cn(BANNER_STYLES, "rounded-2xl px-4 py-2.5")}>
+      <p className="min-w-0 text-xs/5 text-white/80">
+        &ldquo;Choosing a hard to guess, but easy to remember password is important&rdquo;{" "}
+        <span className="whitespace-nowrap text-accent">Kevin Mitnick</span>
       </p>
-      <span aria-hidden className="h-8 shrink-0 text-7xl/none text-white/40">
-        &rdquo;
-      </span>
     </aside>
   );
 }

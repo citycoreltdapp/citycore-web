@@ -1,13 +1,10 @@
+import type { Preferences, RecommendationRecord } from "@/constant/schemas/insights";
+
 import { HOLDINGS } from "../investments/_data";
 import { INVESTMENTS } from "../marketplace/_data";
 
-export interface Preferences {
-  budget: string;
-  horizon: string;
-  risk: string;
-  location: string;
-  portfolio: boolean;
-}
+export type { Preferences, RecommendationRecord } from "@/constant/schemas/insights";
+
 export const DEFAULT_PREFERENCES: Preferences = {
   budget: "500000",
   horizon: "12",
@@ -44,13 +41,6 @@ export const MARKET_HISTORY = [
   { month: "Sep", lagos: 15, abuja: 11 },
   { month: "Oct", lagos: 18, abuja: 14 },
 ];
-export interface RecommendationRecord {
-  id: string;
-  date: string;
-  snapshot: string;
-  recommendation: string;
-  outcome: string;
-}
 export const RECOMMENDATION_HISTORY: RecommendationRecord[] = [
   {
     id: "history-1",

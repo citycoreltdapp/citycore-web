@@ -4,12 +4,12 @@ import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { agreementFormSchema as agreementSchema } from "@/constant/schemas/marketplace";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Download04Icon, File02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { AGREEMENT_VERSION, type Investment, type estimateInvestment, naira } from "../../_data";
 import { openInvestmentDocument } from "../../_documents";
@@ -17,12 +17,6 @@ import { openInvestmentDocument } from "../../_documents";
 export const AGREEMENT_FORM_ID = "investor-agreement";
 const AGREEMENT_DATE = "22 October 2026";
 
-const agreementSchema = z.object({
-  risks: z.literal(true, { error: "Please acknowledge the investment risks." }),
-  exit: z.literal(true, { error: "Please acknowledge the exit terms." }),
-  agreement: z.literal(true, { error: "Please accept the agreement." }),
-  name: z.string().trim().min(2, "Enter your full legal name.").max(150, "Your name is too long."),
-});
 const CONSENTS = [
   { name: "risks", label: "I have read the prospectus and understand the investment risks." },
   { name: "exit", label: "I understand that no early exit or return is guaranteed." },

@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { profilePhotoFileSchema } from "@/constant/schemas/settings";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -38,8 +39,9 @@ export function ProfileCard() {
           dropzoneMaxSize={5 * 1024 * 1024}
           dropzoneMaxFiles={1}
           onFilesAdded={(files) => {
-            if (files[0]) {
-              setPhoto(settings.createPhoto(files[0]));
+            const parsed = profilePhotoFileSchema.safeParse(files[0]);
+            if (parsed.success) {
+              setPhoto(settings.createPhoto(parsed.data));
               AppModal.close();
             }
           }}

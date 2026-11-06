@@ -1,16 +1,8 @@
 // ponytail: mock data from the Figma frames. Replace each export with an API call once the backend exists.
+import type { Transaction } from "@/constant/schemas/finance";
 
-export type TransactionStatus = "Successful" | "Pending" | "Cancel";
-
-export interface Transaction {
-  key: string;
-  title: string;
-  date: string;
-  invoice: string;
-  medium: "PayPal" | "Visa" | "Payoneer";
-  amount: string;
-  status: TransactionStatus;
-}
+export type { Transaction } from "@/constant/schemas/finance";
+export type TransactionStatus = Transaction["status"];
 
 const DESIGN_ROWS: [string, string, Transaction["medium"], TransactionStatus][] = [
   ["Deposit Cash", "#526534", "PayPal", "Successful"],

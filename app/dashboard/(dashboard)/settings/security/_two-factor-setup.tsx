@@ -1,20 +1,21 @@
 "use client";
-import { useState } from "react";
-
 import { AppModal } from "@/components/primitives/app-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { twoFactorPreferencesFormSchema } from "@/constant/schemas/settings";
+import type { TwoFactorSelection } from "@/constant/schemas/settings";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail01Icon, Shield01Icon, SmartPhone01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
+import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { SecurityIllustration } from "./_security-illustration";
 
-export type TwoFactorMethod = "authenticator" | "sms" | "email";
-export type TwoFactorSelection = Record<TwoFactorMethod, boolean>;
+export type { TwoFactorMethod, TwoFactorSelection } from "@/constant/schemas/settings";
 const OPTIONS = [
   {
     id: "authenticator",
@@ -33,7 +34,8 @@ export function TwoFactorSetup({
   initialSelection: TwoFactorSelection;
   onSave: (selection: TwoFactorSelection) => void;
 }) {
-  const [selection, setSelection] = useState(initialSelection);
+  const form = useForm({ resolver: zodResolver(twoFactorPreferencesFormSchema), defaultValues: initialSelection });
+  const selection = useWatch({ control: form.control });
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl items-center">
       <Card className="w-full py-0 ring-0">
@@ -84,7 +86,7 @@ export function TwoFactorSetup({
                     id={`two-factor-${option.id}`}
                     aria-label={option.title}
                     checked={selection[option.id]}
-                    onCheckedChange={(checked) => setSelection((current) => ({ ...current, [option.id]: checked }))}
+                    onCheckedChange={(checked) => form.setValue(option.id, checked, { shouldValidate: true })}
                     className="mt-0.5"
                   />
                 </div>
@@ -101,13 +103,13 @@ export function TwoFactorSetup({
               <Button
                 className="h-10 rounded-full px-5"
                 disabled={!Object.values(selection).some(Boolean)}
-                onClick={() => {
-                  onSave(selection);
+                onClick={form.handleSubmit((values) => {
+                  onSave(values);
                   toast.info(
                     "2FA preferences saved for this settings session. Two-factor authentication has not been enabled."
                   );
                   AppModal.close();
-                }}
+                })}
               >
                 Save
               </Button>

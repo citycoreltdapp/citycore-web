@@ -1,6 +1,7 @@
 "use client";
 import { type ReactNode, createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
+import { renameConversationFormSchema, sendChatMessageRequestSchema } from "@/constant/schemas/ai";
 import { toast } from "sonner";
 
 import { type Conversation, chatStoreSchema, createWorkspaceAnswer, replyDuration } from "./_chat-data";
@@ -63,11 +64,17 @@ function useChatState() {
     replying,
     newChat: () => update((current) => ({ ...current, activeId: null })),
     openChat: (id: string) => update((current) => ({ ...current, activeId: id })),
-    rename: (id: string, title: string) =>
+    rename: (id: string, title: string) => {
+      const parsed = renameConversationFormSchema.safeParse({ title });
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0].message);
+        return;
+      }
       update((current) => ({
         ...current,
-        conversations: current.conversations.map((c) => (c.id === id ? { ...c, title: title.trim().slice(0, 80) } : c)),
-      })),
+        conversations: current.conversations.map((c) => (c.id === id ? { ...c, title: parsed.data.title } : c)),
+      }));
+    },
     togglePin: (id: string) =>
       update((current) => ({
         ...current,
@@ -95,8 +102,12 @@ function useChatState() {
         ),
       })),
     send: (text: string) => {
-      const question = text.trim();
-      if (!question || question.length > 2000) return;
+      const parsed = sendChatMessageRequestSchema.safeParse({ text });
+      if (!parsed.success) {
+        toast.error(parsed.error.issues[0].message);
+        return;
+      }
+      const question = parsed.data.text;
       const replyId = crypto.randomUUID();
       let duration = 0;
       update((current) => {

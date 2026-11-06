@@ -1,3 +1,7 @@
+import type { Holding } from "@/constant/schemas/portfolio";
+
+export type { Holding } from "@/constant/schemas/portfolio";
+
 // Illustrative holdings; use portfolio records from the API when it is connected.
 export const HOLDINGS = [
   {
@@ -24,8 +28,7 @@ export const HOLDINGS = [
     allocatedAt: "2026-03-15",
     maturityDate: "2027-03-15",
   },
-] as const;
-export type Holding = (typeof HOLDINGS)[number];
+] as const satisfies readonly Holding[];
 export const PORTFOLIO_HISTORY = [
   { month: "Jan", value: 4_800_000 },
   { month: "Feb", value: 4_950_000 },

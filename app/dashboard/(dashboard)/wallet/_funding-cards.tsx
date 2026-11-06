@@ -1,14 +1,15 @@
 "use client";
 
-import * as React from "react";
-
 import { NumberField } from "@/components/primitives/number-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { fundingFormSchema } from "@/constant/schemas/finance";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { AddCircleIcon, BankIcon, Copy01Icon, CreditCardIcon, Wallet01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { SummaryRow } from "../marketplace/_investment-parts";
@@ -33,7 +34,14 @@ function CopyButton({ value }: { value: string }) {
   };
 
   return (
-    <Button variant="ghost" size="icon-xs" className="ml-1 align-middle" aria-label={`Copy ${value}`} onClick={copy}>
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-xs"
+      className="ml-1 align-middle"
+      aria-label={`Copy ${value}`}
+      onClick={copy}
+    >
       <HugeiconsIcon icon={Copy01Icon} aria-hidden />
     </Button>
   );
@@ -44,17 +52,20 @@ function FundingDetailsCard({
   onAmountChange,
   methodKey,
   onMethodChange,
+  error,
 }: {
   amount: number | undefined;
   onAmountChange: (amount: number | undefined) => void;
   methodKey: FundingMethodKey;
   onMethodChange: (method: FundingMethodKey) => void;
+  error?: string;
 }) {
   return (
     <Card className="min-w-0 gap-0 rounded-2xl py-0 ring-foreground/8">
       <div className="flex flex-col gap-3 p-5">
         <NumberField
           id={DEPOSIT_AMOUNT_ID}
+          error={error}
           label="Deposit amount"
           prefix={<span className="text-3xl font-light text-foreground">₦</span>}
           value={amount}
@@ -66,6 +77,7 @@ function FundingDetailsCard({
         <div className="flex flex-wrap gap-2">
           {QUICK_AMOUNTS.map((value) => (
             <Button
+              type="button"
               key={value}
               variant={amount === value ? "default" : "outline"}
               className="h-8 rounded-full px-3 text-xs tabular-nums"
@@ -84,6 +96,7 @@ function FundingDetailsCard({
             Pay with
           </h2>
           <Button
+            type="button"
             variant="ghost"
             className="h-8 rounded-full px-2.5 text-xs"
             onClick={() => toast.info("Adding a card isn't connected to a backend yet.")}
@@ -154,11 +167,7 @@ function FundingSummaryCard({ amount, methodKey }: { amount: number | undefined;
         {method.note} Wallet updates after provider confirmation. Payment details remain protected.
       </p>
 
-      <Button
-        className="h-11 w-full rounded-full"
-        disabled={!method.confirmation || !amount}
-        onClick={() => toast.success(method.confirmation)}
-      >
+      <Button className="h-11 w-full rounded-full" disabled={!method.confirmation || !amount} type="submit">
         {method.actionLabel}
       </Button>
     </Card>
@@ -166,18 +175,36 @@ function FundingSummaryCard({ amount, methodKey }: { amount: number | undefined;
 }
 
 export function FundingSection() {
-  const [methodKey, setMethodKey] = React.useState<FundingMethodKey>("bank");
-  const [amount, setAmount] = React.useState<number | undefined>(250000);
-
+  const form = useForm({
+    resolver: zodResolver(fundingFormSchema),
+    defaultValues: { amount: 250000, method: "bank" as FundingMethodKey },
+    mode: "onTouched",
+  });
+  const amount = useWatch({ control: form.control, name: "amount" });
+  const methodKey = useWatch({ control: form.control, name: "method" });
   return (
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
-      <FundingDetailsCard
-        amount={amount}
-        onAmountChange={setAmount}
-        methodKey={methodKey}
-        onMethodChange={setMethodKey}
+    <form
+      noValidate
+      className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]"
+      onSubmit={form.handleSubmit(({ method }) => {
+        const message = FUNDING_METHODS[method].confirmation;
+        if (message) toast.success(message);
+      })}
+    >
+      <Controller
+        control={form.control}
+        name="amount"
+        render={({ field, fieldState }) => (
+          <FundingDetailsCard
+            amount={field.value}
+            onAmountChange={field.onChange}
+            methodKey={methodKey}
+            onMethodChange={(value) => form.setValue("method", value, { shouldValidate: true })}
+            error={fieldState.error?.message}
+          />
+        )}
       />
       <FundingSummaryCard amount={amount} methodKey={methodKey} />
-    </div>
+    </form>
   );
 }

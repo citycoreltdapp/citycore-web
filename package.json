@@ -12,7 +12,8 @@
     "type-check": "next typegen && tsc --noEmit",
     "format": "prettier --write \"**/*.{js,jsx,mjs,ts,tsx,json,css,scss,md}\"",
     "tailwind:fix": "tailwind-lint --fix \"app/**/*.{tsx,jsx}\" \"components/**/*.{tsx,jsx}\"",
-    "chromatic": "node --env-file-if-exists=.env.local node_modules/chromatic/dist/bin.cjs --exit-zero-on-changes"
+    "chromatic": "node --env-file-if-exists=.env.local node_modules/chromatic/dist/bin.cjs --exit-zero-on-changes",
+    "check:schemas": "node scripts/check-schemas.cjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

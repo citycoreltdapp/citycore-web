@@ -1,6 +1,4 @@
 "use client";
-import { useState } from "react";
-
 import { AppModal } from "@/components/primitives/app-modal";
 import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
@@ -11,8 +9,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { renameConversationFormSchema } from "@/constant/schemas/ai";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { type Conversation, conversationText } from "./_chat-data";
@@ -20,30 +21,38 @@ import { useChat } from "./_chat-store";
 
 // AppModal is mounted above the route provider; pass the callback into its content.
 function RenameForm({ initialTitle, onSave }: { initialTitle: string; onSave: (title: string) => void }) {
-  const [title, setTitle] = useState(initialTitle);
+  const form = useForm({
+    resolver: zodResolver(renameConversationFormSchema),
+    defaultValues: { title: initialTitle },
+    mode: "onTouched",
+  });
   return (
     <form
       className="space-y-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (!title.trim()) return;
+      onSubmit={form.handleSubmit(({ title }) => {
         onSave(title);
         AppModal.close();
-      }}
+      })}
     >
-      <TextField
-        id="conversation-title"
-        label="Conversation name"
-        value={title}
-        onChange={setTitle}
-        maxLength={80}
-        autoFocus
+      <Controller
+        control={form.control}
+        name="title"
+        render={({ field, fieldState }) => (
+          <TextField
+            {...field}
+            id="conversation-title"
+            label="Conversation name"
+            maxLength={80}
+            autoFocus
+            error={fieldState.error?.message}
+          />
+        )}
       />
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={() => AppModal.close()}>
           Cancel
         </Button>
-        <Button type="submit" disabled={!title.trim()}>
+        <Button type="submit" disabled={form.formState.isSubmitting}>
           Save name
         </Button>
       </div>
