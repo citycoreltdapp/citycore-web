@@ -54,3 +54,5 @@ export const reportExportRequestSchema = reportExportFormSchema
     idempotencyKey: z.uuid(),
   })
   .strict();
+
+export type StatementRow = z.infer<typeof statementRowSchema>;

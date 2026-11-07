@@ -1,9 +1,13 @@
 "use client";
 
 import { buttonVariants } from "@/components/ui/button";
+import { CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
+
+const SUBMITTED = ["NIN details & address", "Selfie", "Utility bill"];
 
 const SCALLOPS = Array.from({ length: 14 }, (_, index) => {
   const angle = (index / 14) * 2 * Math.PI;
@@ -44,17 +48,28 @@ function SuccessBadge() {
 
 export function OnboardingSuccess() {
   return (
-    <div className="flex max-w-md flex-col items-center text-center">
-      <p className="text-4xl font-bold tracking-tight">City Core</p>
-      <div className="mt-20">
-        <SuccessBadge />
-      </div>
-      <h1 className="mt-10 text-3xl font-bold tracking-tight">KYC Submitted Successfully!</h1>
-      <p className="mt-3 text-lg text-muted-foreground">
-        Welcome aboard! Your KYC is still in review, and your profile is pending.
+    <div className="flex w-full max-w-md flex-col items-center text-center">
+      <SuccessBadge />
+      <h1 className="mt-8 text-3xl font-semibold tracking-tight md:text-4xl">Verification submitted</h1>
+      <p className="mt-3 text-base text-muted-foreground">
+        We&apos;re reviewing your details now. We&apos;ll let you know once you&apos;re approved, and investing unlocks
+        right after.
       </p>
-      <Link href="/" className={cn(buttonVariants(), "mt-12 h-11 px-8 text-base")}>
-        Back to Home
+
+      <ul className="mt-8 flex w-full flex-col rounded-2xl bg-card p-2 text-left ring-1 ring-foreground/10">
+        {SUBMITTED.map((item) => (
+          <li key={item} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 text-sm">
+            <span className="font-medium">{item}</span>
+            <span className="flex items-center gap-1.5 text-success">
+              <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden className="size-4" />
+              Received
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <Link href="/" className={cn(buttonVariants(), "mt-8 h-13 w-full rounded-xl text-base")}>
+        Go to dashboard
       </Link>
     </div>
   );

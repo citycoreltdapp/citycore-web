@@ -2,348 +2,296 @@
 import * as React from "react";
 
 import { AppModal } from "@/components/primitives/app-modal";
-import { DataTable } from "@/components/primitives/data-table";
-import { PasswordField } from "@/components/primitives/password-field";
-import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import {
-  type BankingConfigForm,
-  bankingConfigFormSchema,
-  ledgerMappingSchema,
-  postingPreviewFormSchema,
-} from "@/constant/schemas/admin-treasury";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
+import { Card } from "@/components/ui/card";
+import { ArrowLeft01Icon, ArrowRight01Icon, CheckmarkCircle02Icon, LockIcon } from "@hugeicons/core-free-icons";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "cn";
+import Link from "next/link";
 
 import { useReviewRequests } from "../../_operations/requests";
 import { BANKING_RETRIES, LEDGER_MAPPINGS } from "../../_operations/treasury-data";
-import { FinanceNumber, FinanceSelect, FinanceText, money, reviewBatch } from "../../_operations/treasury-ui";
-import { Notice, PageLink, PageTitle, Panel, StatusBadge } from "../../_operations/ui";
+import { money, reviewBatch } from "../../_operations/treasury-ui";
+import { Notice } from "../../_operations/ui";
+import { FilterChips, StatusPill, formatDate } from "../../account/_ui";
+import { CardHeader, type Reviews } from "../../content/_ui";
+import { DetailList, Initials } from "../../users/_ui";
+import { ConnectionTab } from "./_connection";
+import { LedgerTab } from "./_ledger";
+import { RetriesTab } from "./_retries";
 
-export function BankingPage() {
-  const { submit, ready, requests } = useReviewRequests();
-  const form = useForm<BankingConfigForm>({
-    resolver: zodResolver(bankingConfigFormSchema),
-    defaultValues: {
-      environment: "sandbox",
-      endpoint: "https://sandbox.example.invalid/symplus",
-      clientId: "",
-      tenant: "",
-      timeoutSeconds: 30,
-      reason: "Initial sandbox setup for integration review",
-    },
-  });
-  const posting = useForm<z.infer<typeof postingPreviewFormSchema>>({
-    resolver: zodResolver(postingPreviewFormSchema),
-    defaultValues: { reference: "CC-1022", amount: 250000 },
-  });
-  const [validated, setValidated] = React.useState<z.infer<typeof postingPreviewFormSchema> | null>(null);
-  const [selected, setSelected] = React.useState(BANKING_RETRIES[0]);
-  const hydrated = React.useRef(false);
-  React.useEffect(() => {
-    if (!ready || hydrated.current) return;
-    hydrated.current = true;
-    const draft = requests.find((r) => r.kind === "banking-config");
-    if (!draft) return;
-    const parsed = bankingConfigFormSchema.safeParse(draft.details);
-    if (parsed.success) form.reset(parsed.data);
-  }, [ready, requests, form]);
+type View = "connection" | "ledger" | "customers" | "retries";
+const KINDS = ["banking-config", "environment-review"];
+
+function StatusCard({ configSaved }: { configSaved: boolean }) {
+  const steps = [
+    { label: "Configuration draft", done: configSaved },
+    { label: "Independent approval", done: false },
+    { label: "Sandbox connection test", done: false },
+    { label: "Scheduled sync", done: false },
+  ];
+  const done = steps.filter((s) => s.done).length;
+  const blocked = BANKING_RETRIES.filter((r) => r.state === "blocked").length;
   return (
-    <>
-      <PageTitle
-        title="Symplus Core Banking"
-        description="Integration configuration and ledger-mapping previews · no live banking connection."
-      >
-        <PageLink href="/withdrawals">Treasury & withdrawals</PageLink>
-      </PageTitle>
-      <Notice>
-        Sandbox / unconfigured. Credentials have not been entered and no endpoint has been contacted. All customer
-        links, balances and retry records below are illustrative previews.
-      </Notice>
-      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="space-y-5">
-          <Panel title="Connection configuration" description="Restricted to authorized integration administrators">
-            <StatusBadge value="unconfigured-sandbox" />
-            <form
-              noValidate
-              className="space-y-4"
-              onSubmit={form.handleSubmit((values) => {
-                submit(
-                  {
-                    kind: "banking-config",
-                    subjectId: "symplus-sandbox",
-                    summary: "Symplus sandbox configuration draft",
-                    reason: values.reason,
-                    details: { ...values },
-                  },
-                  { replaceDraft: true }
-                );
-              })}
-            >
-              <FinanceSelect
-                form={form}
-                name="environment"
-                label="Environment"
-                items={[{ value: "sandbox", label: "Sandbox" }]}
-              />
-              <FinanceText form={form} name="endpoint" label="Base endpoint" />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FinanceText form={form} name="clientId" label="Client identifier (non-secret)" />
-                <PasswordField
-                  id="symplus-secret"
-                  label="API secret"
-                  value=""
-                  onChange={() => {}}
-                  disabled
-                  placeholder="Configure in server secret store"
-                  helpText="Credentials are never stored in browser drafts."
-                />
-                <FinanceText form={form} name="tenant" label="Tenant / branch" />
-                <FinanceNumber form={form} name="timeoutSeconds" label="Timeout (seconds)" />
-              </div>
-              <label className="flex items-center justify-between gap-4 text-sm">
-                <span>
-                  Enable scheduled sync
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    Unavailable until configuration is approved
-                  </span>
-                </span>
-                <Switch aria-label="Enable scheduled sync" checked={false} disabled />
-              </label>
-              <FinanceText form={form} name="reason" label="Change reason" area />
-              <div className="flex flex-wrap gap-2">
-                <Button type="submit" variant="outline" disabled={!ready}>
-                  Save configuration draft
-                </Button>
-                <Button disabled>Test sandbox connection</Button>
-              </div>
-            </form>
-          </Panel>
-          <Panel title="Chart-of-accounts mapping" description="Draft mapping · double-entry posting preview">
-            <DataTable
-              data={LEDGER_MAPPINGS}
-              showPagination={false}
-              columns={[
-                { accessorKey: "event", header: "Event" },
-                { accessorKey: "debitAccount", header: "Debit account" },
-                { accessorKey: "creditAccount", header: "Credit account" },
-                { accessorKey: "state", header: "State" },
-              ]}
-            />
-            <form
-              noValidate
-              className="space-y-4"
-              onSubmit={posting.handleSubmit((values) => {
-                const result = z.array(ledgerMappingSchema).safeParse(LEDGER_MAPPINGS);
-                if (!result.success) {
-                  toast.error("Invalid mapping. Debit and credit accounts must differ.");
-                  return;
-                }
-                setValidated(values);
-              })}
-            >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FinanceText form={posting} name="reference" label="Posting reference" />
-                <FinanceNumber form={posting} name="amount" label="Posting amount" prefix="₦" />
-              </div>
-              {validated && (
-                <div role="status" className="space-y-2 text-sm">
-                  <p>
-                    Debit / credit totals: {money(validated.amount)} / {money(validated.amount)}
-                  </p>
-                  <p>Difference: {money(0)} · balanced preview</p>
-                  <p className="text-xs text-muted-foreground">
-                    Reference {validated.reference} · this check does not post to the ledger.
-                  </p>
-                </div>
-              )}
-              <Button type="submit" variant="outline">
-                Validate mapping preview
-              </Button>
-            </form>
-          </Panel>
+    <section className="relative flex flex-col gap-6 overflow-hidden rounded-2xl bg-[#121212] p-6 text-white ring-1 ring-white/10">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-24 -right-16 size-72 rounded-full bg-accent/25 blur-3xl"
+      />
+      <div className="relative flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-sm text-white/60">Symplus integration</p>
+          <p className="mt-2 text-4xl font-light md:text-5xl">Not connected</p>
+          <p className="mt-2 text-xs text-white/50">No endpoint has been contacted · all records below are previews</p>
         </div>
-        <aside className="space-y-5">
-          <Panel title="Customer linkage">
-            <TextField
-              id="banking-investor"
-              label="Investor"
-              value="Ada Okafor · CC-U014"
-              onChange={() => {}}
-              readOnly
-            />
-            <TextField
-              id="banking-customer-ref"
-              label="Symplus customer reference"
-              value="Not linked"
-              onChange={() => {}}
-              readOnly
-            />
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <dt>KYC eligibility</dt>
-              <dd>Awaiting complete verification</dd>
-              <dt>Linkage state</dt>
-              <dd>Blocked · unconfigured</dd>
-            </dl>
-            <Button disabled className="w-full">
-              Create customer link
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() =>
-                AppModal.open({
-                  title: "Customer linkage requirements",
-                  content: (
-                    <Notice>
-                      Complete investor KYC, verify customer identity and approve the sandbox connection first. The
-                      server must then create an idempotent customer link and retain the returned reference. No customer
-                      data has been sent.
-                    </Notice>
-                  ),
-                })
-              }
-            >
-              Review linkage requirements
-            </Button>
-          </Panel>
-          <Panel title="Balance sync preview">
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <dt>City Core wallet</dt>
-              <dd>{money(1250000)}</dd>
-              <dt>Symplus balance</dt>
-              <dd>Unavailable</dd>
-              <dt>Variance</dt>
-              <dd>Not calculated</dd>
-              <dt>Last successful sync</dt>
-              <dd>Never · unconfigured</dd>
-            </dl>
-            <Button disabled className="w-full">
-              Run sandbox balance query
-            </Button>
-            <Notice>
-              Never overwrite the wallet from an unverified remote balance. Differences create reconciliation
-              exceptions.
-            </Notice>
-          </Panel>
-          <Panel title="Production guardrail">
-            <Notice>
-              Production credentials are not shown. Switching environment requires a separate approved change, dual
-              review and connection validation.
-            </Notice>
-            <Button
-              variant="outline"
-              disabled={!ready}
-              onClick={() =>
-                reviewBatch({
-                  title: "Request environment review",
-                  batchId: "SYMPLUS-PRODUCTION",
-                  content: (
-                    <Notice>
-                      This records a local review request only. It does not switch environments, expose credentials or
-                      contact a production endpoint.
-                    </Notice>
-                  ),
-                  onSave: (v) =>
-                    submit({
-                      kind: "environment-review",
-                      subjectId: "symplus-production",
-                      summary: "Production environment review",
-                      reason: v.reason,
-                      details: { checkerId: v.checkerId, environment: "production" },
-                    }),
-                })
-              }
-            >
-              Request environment review
-            </Button>
-          </Panel>
-        </aside>
+        <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">
+          <span aria-hidden className="size-1.5 rounded-full bg-accent" />
+          Sandbox
+        </span>
       </div>
-      <Panel title="Posting & sync retry queue" description="Illustrative failed records · no live retry available">
-        <DataTable
-          data={BANKING_RETRIES}
-          showPagination={false}
-          getRowId={(r) => r.id}
-          onRowClick={setSelected}
-          rowClassName="cursor-pointer even:bg-muted/40"
-          columns={[
-            {
-              accessorKey: "id",
-              header: "Reference",
-              cell: ({ row }) => (
-                <button
-                  type="button"
-                  aria-pressed={row.original.id === selected.id}
-                  className="cursor-pointer text-left font-medium text-foreground hover:underline"
-                  onClick={() => setSelected(row.original)}
-                >
-                  {row.original.id === selected.id ? "● " : ""}
-                  {row.original.id}
-                </button>
-              ),
-            },
-            { accessorKey: "operation", header: "Operation" },
-            { accessorKey: "failure", header: "Failure" },
-            { accessorKey: "nextStep", header: "Next step" },
-            { accessorKey: "state", header: "State", cell: ({ row }) => <StatusBadge value={row.original.state} /> },
-          ]}
-        />
-        <div className="flex flex-wrap gap-2">
+
+      <div className="relative flex flex-col gap-2.5">
+        <p className="text-xs text-white/60">
+          Setup · {done} of {steps.length}
+        </p>
+        <ol className="grid gap-2 sm:grid-cols-4">
+          {steps.map((s, i) => (
+            <li key={s.label} className="flex flex-col gap-2">
+              <span aria-hidden className={cn("h-1 rounded-full", s.done ? "bg-accent" : "bg-white/15")} />
+              <span className={cn("text-xs", s.done ? "text-white" : "text-white/50")}>
+                {i + 1}. {s.label}
+                <span className="sr-only">{s.done ? " · done" : " · not done"}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <dl className="relative grid grid-cols-3 gap-4 border-t border-white/10 pt-5">
+        {[
+          { label: "Ledger events", value: LEDGER_MAPPINGS.length, note: "mapped · draft" },
+          { label: "Retry queue", value: BANKING_RETRIES.length, note: `${blocked} blocked` },
+          { label: "Last sync", value: "Never", note: "unconfigured" },
+        ].map(({ label, value, note }) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-xs text-white/60">{label}</dt>
+            <dd className="mt-1 truncate text-sm font-semibold tabular-nums sm:text-base">{value}</dd>
+            <dd className="truncate text-xs text-white/50">{note}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function ProductionCard({ reviews }: { reviews: Reviews }) {
+  const { requests, submit, ready } = reviews;
+  const open = requests.filter((r) => KINDS.includes(r.kind));
+  return (
+    <Card className="gap-4 rounded-2xl px-5 py-5 ring-foreground/8">
+      <CardHeader title="Production access" note="Locked · needs a separate approved change" />
+      <ul className="flex flex-col gap-2">
+        {["Approved change request", "Dual review", "Connection validation"].map((item) => (
+          <li key={item} className="flex items-center gap-2.5 text-sm">
+            <HugeiconsIcon icon={LockIcon} aria-hidden className="size-4 text-muted-foreground" />
+            {item}
+          </li>
+        ))}
+      </ul>
+      <Button
+        variant="outline"
+        className="h-10 rounded-full"
+        disabled={!ready}
+        onClick={() =>
+          reviewBatch({
+            title: "Request environment review",
+            batchId: "SYMPLUS-PRODUCTION",
+            content: (
+              <Notice>
+                This records a local review request only. It doesn&apos;t switch environments, expose credentials or
+                contact a production endpoint.
+              </Notice>
+            ),
+            onSave: (v) =>
+              submit({
+                kind: "environment-review",
+                subjectId: "symplus-production",
+                summary: "Production environment review",
+                reason: v.reason,
+                details: { checkerId: v.checkerId, environment: "production" },
+              }),
+          })
+        }
+      >
+        Request environment review
+      </Button>
+      <div className="flex flex-col border-t border-border pt-3">
+        <p className="text-xs text-muted-foreground">Your requests</p>
+        {open.length ? (
+          <ul className="flex flex-col">
+            {open.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 border-b border-border py-2.5 last:border-none">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{r.summary}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{formatDate(r.createdAt)}</span>
+                </span>
+                <StatusPill tone="warning">Pending</StatusPill>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="flex items-center gap-2 py-2.5 text-sm text-muted-foreground">
+            <HugeiconsIcon icon={CheckmarkCircle02Icon} aria-hidden className="size-4" />
+            Nothing submitted yet
+          </p>
+        )}
+      </div>
+    </Card>
+  );
+}
+
+function CustomersTab() {
+  return (
+    <div className="grid items-start gap-5 lg:grid-cols-2">
+      <Card className="min-w-0 gap-0 rounded-2xl py-0 ring-foreground/8">
+        <div className="flex flex-col gap-4 p-5">
+          <CardHeader title="Customer linkage" note="One Symplus customer per verified investor">
+            <StatusPill tone="danger">Blocked</StatusPill>
+          </CardHeader>
+          <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
+            <Initials name="Ada Okafor" />
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold">Ada Okafor</span>
+              <span className="block text-xs text-muted-foreground">CC-U014</span>
+            </span>
+          </div>
+          <DetailList
+            rows={[
+              ["Symplus reference", "Not linked"],
+              ["KYC eligibility", "Awaiting complete verification"],
+              ["Linkage state", "Blocked · unconfigured"],
+            ]}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2 border-t border-border bg-muted/40 p-5">
           <Button
             variant="outline"
+            className="h-10 flex-1 rounded-full"
             onClick={() =>
               AppModal.open({
-                title: `Masked payload · ${selected.id}`,
+                title: "Customer linkage requirements",
                 content: (
-                  <div className="space-y-4">
-                    <pre className="overflow-x-auto rounded-lg bg-muted p-4 text-xs/6">
-                      {JSON.stringify(
-                        {
-                          reference: selected.originalReference,
-                          operation: selected.operation,
-                          idempotencyKey: selected.idempotencyKey,
-                          environment: "sandbox",
-                          state: selected.state,
-                        },
-                        null,
-                        2
-                      )}
-                    </pre>
-                    <Notice>
-                      No credentials, full account numbers or sensitive identity identifiers are included in this
-                      preview.
-                    </Notice>
-                  </div>
+                  <Notice>
+                    Complete investor KYC, verify customer identity and approve the sandbox connection first. The server
+                    must then create an idempotent customer link and retain the returned reference. No customer data has
+                    been sent.
+                  </Notice>
                 ),
               })
             }
           >
-            Inspect selected payload
+            Requirements
           </Button>
-          <Button disabled>Query original status</Button>
-          <Button disabled>Retry idempotent posting</Button>
+          <Button className="h-10 flex-1 rounded-full" disabled>
+            <HugeiconsIcon icon={LockIcon} aria-hidden />
+            Create link
+          </Button>
         </div>
-        <Notice>
-          Original references and idempotency keys must be preserved. A timeout does not establish non-settlement. Retry
-          remains blocked until the original status is verified.
-        </Notice>
-      </Panel>
-      {requests.some((r) => ["banking-config", "environment-review"].includes(r.kind)) && (
-        <Panel title="Local integration review requests">
-          <DataTable
-            pageSize={5}
-            data={requests.filter((r) => ["banking-config", "environment-review"].includes(r.kind))}
-            columns={[
-              { accessorKey: "summary", header: "Request" },
-              { accessorKey: "reason", header: "Reason" },
-              { accessorKey: "state", header: "State" },
+      </Card>
+
+      <Card className="min-w-0 gap-0 rounded-2xl py-0 ring-foreground/8">
+        <div className="flex flex-col gap-4 p-5">
+          <CardHeader title="Balance sync" note="Wallet vs core banking · sandbox preview" />
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl bg-border">
+            {[
+              { label: "City Core wallet", value: money(1250000), muted: false },
+              { label: "Symplus balance", value: "Unavailable", muted: true },
+            ].map((b) => (
+              <div key={b.label} className="bg-card p-4">
+                <p className="text-xs text-muted-foreground">{b.label}</p>
+                <p className={cn("mt-1 text-2xl font-light tabular-nums", b.muted && "text-muted-foreground")}>
+                  {b.value}
+                </p>
+              </div>
+            ))}
+          </div>
+          <DetailList
+            rows={[
+              ["Variance", "Not calculated"],
+              ["Last successful sync", "Never · unconfigured"],
             ]}
           />
-        </Panel>
-      )}
+          <p className="text-xs/5 text-muted-foreground">
+            Never overwrite the wallet from an unverified remote balance. Differences create reconciliation exceptions.
+          </p>
+        </div>
+        <div className="border-t border-border bg-muted/40 p-5">
+          <Button className="h-10 w-full rounded-full" disabled>
+            <HugeiconsIcon icon={LockIcon} aria-hidden />
+            Run sandbox balance query
+          </Button>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+export function BankingPage() {
+  const reviews = useReviewRequests();
+  const [view, setView] = React.useState<View>("connection");
+  const configSaved = reviews.requests.some((r) => r.kind === "banking-config");
+
+  return (
+    <>
+      <Link
+        href="/platform"
+        className="flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden className="size-4" />
+        Platform configuration
+      </Link>
+      <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+        <div className="space-y-1.5">
+          <h1 className="text-2xl font-semibold tracking-tight">Core banking</h1>
+          <p className="text-sm text-muted-foreground">
+            Symplus connection, ledger mapping and sync · no live banking connection
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="h-10 rounded-full px-4"
+          nativeButton={false}
+          render={<Link href="/withdrawals" />}
+        >
+          Treasury & withdrawals
+          <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden />
+        </Button>
+      </header>
+
+      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <StatusCard configSaved={configSaved} />
+        <ProductionCard reviews={reviews} />
+      </div>
+
+      <FilterChips
+        label="Workspace"
+        value={view}
+        onChange={setView}
+        options={[
+          { value: "connection", label: "Connection" },
+          { value: "ledger", label: "Ledger mapping", count: LEDGER_MAPPINGS.length },
+          { value: "customers", label: "Customers & balances" },
+          { value: "retries", label: "Retry queue", count: BANKING_RETRIES.length },
+        ]}
+      />
+      <div hidden={view !== "connection"}>
+        <ConnectionTab reviews={reviews} />
+      </div>
+      <div hidden={view !== "ledger"}>
+        <LedgerTab />
+      </div>
+      {view === "customers" && <CustomersTab />}
+      {view === "retries" && <RetriesTab />}
     </>
   );
 }
