@@ -1,5 +1,6 @@
 "use client";
 
+import { CardMenu } from "@/components/dashboard/card-menu";
 import { DataTable } from "@/components/primitives/data-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight02Icon } from "@hugeicons/core-free-icons";
@@ -7,7 +8,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 
-import { CardMenu } from "./_card-menu";
 import { LATEST_TRANSACTIONS, type LatestTransaction, TRANSACTION_ACCOUNTS, type TransactionAccount } from "./_data";
 
 const TABLE_MENU_ITEMS = ["Print", "Remove", "Download"];

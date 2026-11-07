@@ -13,11 +13,21 @@ import { Allocation } from "../_investment-parts";
 
 const offeringId = (investment: Investment) => `${investment.id.toUpperCase()}-2026`;
 
-export function PropertyHero({ investment }: { investment: Investment }) {
+export function PropertyHero({
+  investment,
+  statusLabel = "Open for investment",
+  imageSrc,
+  headingAs: Heading = "h1",
+}: {
+  investment: Investment;
+  statusLabel?: string;
+  imageSrc?: string;
+  headingAs?: "h1" | "h2";
+}) {
   return (
     <div className="relative aspect-4/3 min-w-0 overflow-hidden rounded-2xl bg-muted sm:aspect-16/9">
       <Image
-        src={`/assets/images/marketplace/${investment.image}.png`}
+        src={imageSrc ?? `/assets/images/marketplace/${investment.image}.png`}
         alt={`Architectural illustration of ${investment.name}`}
         fill
         priority
@@ -29,13 +39,13 @@ export function PropertyHero({ investment }: { investment: Investment }) {
       <div className="absolute inset-x-3 top-3 flex flex-wrap justify-between gap-2 text-[11px] text-white">
         <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">
           <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-          Open for investment
+          {statusLabel}
         </span>
         <span className="rounded-full bg-black/55 px-2.5 py-1 backdrop-blur-sm">Illustration, not a photograph</span>
       </div>
 
       <div className="absolute inset-x-5 bottom-4 text-white md:inset-x-6 md:bottom-5">
-        <h1 className="text-3xl font-light md:text-4xl">{investment.name}</h1>
+        <Heading className="text-3xl font-light md:text-4xl">{investment.name}</Heading>
         <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-white/80">
           <span className="flex items-center gap-1">
             <HugeiconsIcon icon={Location01Icon} aria-hidden className="size-4 shrink-0" />
@@ -85,12 +95,26 @@ function DocumentRow({
   );
 }
 
-export function PropertyDetails({ investment }: { investment: Investment }) {
+export function PropertyDetails({
+  investment,
+  description,
+  assetType = "Residential development",
+  minimumUnits = 1,
+}: {
+  investment: Investment;
+  description?: string;
+  assetType?: string;
+  minimumUnits?: number;
+}) {
   const preview = `Preview · v${AGREEMENT_VERSION}`;
   const stats = [
     { label: "Target annual ROI", value: `${investment.annualRoi}%`, note: "Simple, not guaranteed" },
     { label: "Term", value: `${investment.tenure} months`, note: "From allocation" },
-    { label: "Per unit", value: naira(investment.unitPrice), note: "Minimum 1 unit" },
+    {
+      label: "Per unit",
+      value: naira(investment.unitPrice),
+      note: `Minimum ${minimumUnits} ${minimumUnits === 1 ? "unit" : "units"}`,
+    },
     {
       label: "Total offering",
       value: `${investment.totalUnits.toLocaleString("en-NG")} units`,
@@ -98,7 +122,7 @@ export function PropertyDetails({ investment }: { investment: Investment }) {
     },
   ];
   const facts = [
-    ["Asset type", "Residential development"],
+    ["Asset type", assetType],
     ["Location", `${investment.location}, Nigeria`],
     ["Returns", "Simple interest, no compounding"],
     ["Reporting", "Quarterly progress updates"],
@@ -123,8 +147,8 @@ export function PropertyDetails({ investment }: { investment: Investment }) {
 
       <SectionCard title="About this offering">
         <p className="max-w-prose text-sm/6 text-muted-foreground">
-          Allocation funds acquisition and staged development of residential units. City Core provides quarterly
-          progress updates and reporting against the offering milestones.
+          {description ??
+            "Allocation funds acquisition and staged development of residential units. City Core provides quarterly progress updates and reporting against the offering milestones."}
         </p>
         <dl className="grid gap-x-8 sm:grid-cols-2">
           {facts.map(([label, value]) => (

@@ -14,11 +14,17 @@ import type { IconSvgElement } from "@hugeicons/react";
 
 export interface DashboardNavItem {
   title: string;
-  url: string;
+  /** Leave out while the page isn't built yet. */
+  url?: string;
   icon: IconSvgElement;
 }
 
-export const dashboardNavGroups: { label: string; items: DashboardNavItem[] }[] = [
+export interface NavGroup {
+  label: string;
+  items: DashboardNavItem[];
+}
+
+export const dashboardNavGroups: NavGroup[] = [
   {
     label: "Main Menu",
     items: [

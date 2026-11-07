@@ -7,7 +7,19 @@ import Link from "next/link";
 import { type Investment, naira } from "./_data";
 import { Allocation } from "./_investment-parts";
 
-export function InvestmentCard({ investment, index }: { investment: Investment; index: number }) {
+export function InvestmentCard({
+  investment,
+  index,
+  href = `/marketplace/${investment.id}`,
+  statusLabel = "Open",
+  imageSrc,
+}: {
+  investment: Investment;
+  index: number;
+  href?: string;
+  statusLabel?: string;
+  imageSrc?: string;
+}) {
   return (
     <Card
       style={{ animationDelay: `${index * 50}ms` }}
@@ -15,7 +27,7 @@ export function InvestmentCard({ investment, index }: { investment: Investment; 
     >
       <div className="relative aspect-4/3 overflow-hidden rounded-[0.625rem] bg-muted">
         <Image
-          src={`/assets/images/marketplace/${investment.image}.png`}
+          src={imageSrc ?? `/assets/images/marketplace/${investment.image}.png`}
           alt={`Architectural illustration of ${investment.name}`}
           fill
           sizes="(min-width: 1536px) 22vw, (min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
@@ -25,7 +37,7 @@ export function InvestmentCard({ investment, index }: { investment: Investment; 
 
         <span className="absolute top-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-[11px] text-white backdrop-blur-sm">
           <span aria-hidden className="size-1.5 rounded-full bg-accent" />
-          Open
+          {statusLabel}
         </span>
         <span
           aria-hidden
@@ -45,7 +57,7 @@ export function InvestmentCard({ investment, index }: { investment: Investment; 
           <h2 className="text-base font-semibold">
             {/* The ::after stretches this link over the whole card. */}
             <Link
-              href={`/marketplace/${investment.id}`}
+              href={href}
               className="outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring"
             >
               {investment.name}

@@ -121,3 +121,273 @@ reject(s.chatStreamEventSchema, { type: "delta", text: "missing ID" });
 console.log(
   "Schema checks passed: current fixtures, requests, coercion, cross-field validation, uploads and security boundaries."
 );
+
+const adminFixtures = load("app/admin/(admin)/account/_data.ts");
+adminFixtures.INITIAL_INVOICES.forEach((row) => accept(s.adminInvoiceSchema, row));
+adminFixtures.ACCOUNT_TRANSACTIONS.forEach((row) => accept(s.adminAccountTransactionSchema, row));
+const invoiceInput = Object.fromEntries(
+  Object.entries(adminFixtures.INITIAL_INVOICES[0]).filter(([key]) => !["id", "status", "createdAt"].includes(key))
+);
+accept(s.adminInvoiceFormSchema, invoiceInput);
+reject(s.adminInvoiceFormSchema, { ...invoiceInput, amount: -1 });
+reject(s.adminInvoiceFormSchema, { ...invoiceInput, rate: 101 });
+reject(s.adminInvoiceFormSchema, { ...invoiceInput, email: "invalid" });
+reject(s.adminInvoiceFormSchema, { ...invoiceInput, dueDate: "2026-02-30" });
+reject(s.adminInvoiceFormSchema, { ...invoiceInput, status: "paid" });
+accept(s.createAdminInvoiceRequestSchema, { ...invoiceInput, intent: "draft", idempotencyKey: uuid });
+console.log("Admin account fixtures and invoice validation passed.");
+
+const people = load("app/admin/(admin)/_operations/data.ts");
+people.INVESTORS.forEach((row) => accept(s.adminInvestorSchema, row));
+people.STAFF.forEach((row) => accept(s.staffMemberSchema, row));
+people.KYC_CASES.forEach((row) => accept(s.kycCaseSchema, row));
+const statusRequest = {
+  status: "suspended",
+  currentStatus: "active",
+  investorId: "CC-U014",
+  reasonCode: "compliance-review",
+  reason: "Review unusual withdrawal activity before release",
+  reviewed: true,
+  confirmation: "SUSPENDED",
+  idempotencyKey: uuid,
+};
+accept(s.statusChangeRequestSchema, statusRequest);
+reject(s.statusChangeRequestSchema, { ...statusRequest, confirmation: "" });
+reject(s.statusChangeRequestSchema, { ...statusRequest, status: "active", confirmation: "ACTIVE" });
+reject(s.statusChangeRequestSchema, { ...statusRequest, reviewed: false });
+const roleRequest = {
+  staffId: "staff-tunde",
+  role: "compliance",
+  reason: "Compliance team onboarding requires this role",
+  requestedBy: "staff-nneka",
+  approverId: "staff-zainab",
+  idempotencyKey: uuid,
+};
+accept(s.roleChangeRequestSchema, roleRequest);
+reject(s.roleChangeRequestSchema, { ...roleRequest, approverId: "staff-nneka" });
+reject(s.roleChangeRequestSchema, { ...roleRequest, approverId: "staff-tunde" });
+accept(s.kycDecisionFormSchema, {
+  decision: "approve",
+  reason: "Identity and address evidence reviewed and matched",
+  message: "",
+  reviewed: true,
+});
+reject(s.kycDecisionFormSchema, {
+  decision: "reject",
+  reason: "Identity and address evidence reviewed and mismatched",
+  message: "",
+  reviewed: true,
+});
+reject(s.kycDecisionFormSchema, {
+  decision: "approve",
+  reason: "Identity and address evidence reviewed and matched",
+  message: "",
+  reviewed: false,
+});
+reject(s.kycOverrideRequestSchema, {
+  caseId: "KYC-304",
+  reason: "Validation mismatch requires a second independent review",
+  requestedBy: "staff-amaka",
+  approverId: "staff-amaka",
+  idempotencyKey: uuid,
+});
+reject(s.permissionChangeFormSchema, {
+  approverId: "staff-zainab",
+  permission: "Audit log",
+  role: "super-admin",
+  level: "Allowed",
+  reason: "Should never allow editable audit records",
+});
+reject(s.staffVerificationSchema, { method: "authenticator", challengeId: "challenge", code: "12345" });
+accept(s.staffVerificationSchema, { method: "authenticator", challengeId: "challenge", code: "123456" });
+console.log("Admin people fixtures and review-request validation passed.");
+
+const permissionRequest = {
+  permission: "Investor profiles",
+  role: "compliance",
+  level: "Read only",
+  reason: "Independent review of investor profile access",
+  requestedBy: "staff-nneka",
+  approverId: "staff-zainab",
+  idempotencyKey: uuid,
+};
+accept(s.permissionChangeRequestSchema, permissionRequest);
+reject(s.permissionChangeRequestSchema, { ...permissionRequest, approverId: "staff-nneka" });
+people.CUSTOMER_HISTORY.forEach((row) => accept(s.adminCustomerHistoryPointSchema, row));
+
+const offerings = load("app/admin/(admin)/investments/_data.ts").ADMIN_INVESTMENTS;
+offerings.forEach((row) => accept(s.adminInvestmentSchema, row));
+const offeringForm = s.adminInvestmentFormSchema.parse(offerings[0]);
+reject(s.adminInvestmentFormSchema, { ...offeringForm, endDate: offeringForm.startDate });
+reject(s.adminInvestmentFormSchema, { ...offeringForm, minimumUnits: offeringForm.totalUnits + 1 });
+reject(s.adminInvestmentSchema, { ...offerings[0], totalUnits: offerings[0].allocatedUnits - 1 });
+reject(s.publishAdminInvestmentSchema, { ...offeringForm, rightsConfirmed: false });
+reject(s.publishAdminInvestmentSchema, { ...offeringForm, termsConfirmed: false });
+accept(s.publishAdminInvestmentSchema, offeringForm);
+reject(s.adminInvestmentFormSchema, { ...offeringForm, annualRoi: 101 });
+reject(s.adminInvestmentFormSchema, { ...offeringForm, image: "../../private" });
+reject(s.investmentCoverPreviewSchema, "data:image/svg+xml;base64,AAAA");
+const coverless = Object.fromEntries(Object.entries(offeringForm).filter(([key]) => key !== "coverPreview"));
+accept(s.createAdminInvestmentRequestSchema, { ...coverless, idempotencyKey: uuid, intent: "draft" });
+reject(s.createAdminInvestmentRequestSchema, {
+  ...coverless,
+  idempotencyKey: uuid,
+  intent: "review",
+  termsConfirmed: false,
+});
+console.log("Admin investment fixtures and publication validation passed.");
+
+reject(s.createAdminInvestmentRequestSchema, {
+  ...coverless,
+  idempotencyKey: uuid,
+  intent: "draft",
+  coverPreview: "data:image/png;base64,AAAA",
+});
+reject(s.createAdminInvestmentRequestSchema, {
+  ...coverless,
+  idempotencyKey: uuid,
+  intent: "draft",
+  allocatedUnits: 0,
+});
+
+const treasury = load("app/admin/(admin)/_operations/treasury-data.ts");
+treasury.TREASURY_ACCOUNTS.forEach((row) => accept(s.treasuryAccountSchema, row));
+treasury.WITHDRAWAL_QUEUE.forEach((row) => accept(s.adminWithdrawalSchema, row));
+treasury.DISBURSEMENT_HISTORY.forEach((row) => accept(s.disbursementHistorySchema, row));
+treasury.LEDGER_MAPPINGS.forEach((row) => accept(s.ledgerMappingSchema, row));
+treasury.BANKING_RETRIES.forEach((row) => accept(s.bankingRetryRowSchema, row));
+const preview = load("lib/treasury-preview.ts");
+const schedule = {
+  propertyId: "all",
+  basis: "30/360",
+  annualRate: 16,
+  frequency: "quarterly",
+  periodStart: "2026-07-01",
+  periodEnd: "2026-09-30",
+  creditDate: "2026-10-31",
+  withholdingRate: 10,
+  reason: "Quarterly distribution schedule for compliance review",
+};
+const dividends = preview.previewDividends(schedule, treasury.RETURN_COHORTS);
+dividends.forEach((row) => accept(s.dividendGroupSchema, row));
+assert.equal(
+  dividends.reduce((sum, row) => sum + row.gross, 0),
+  240000
+);
+assert.equal(
+  dividends.reduce((sum, row) => sum + row.tax, 0),
+  24000
+);
+assert.equal(
+  dividends.reduce((sum, row) => sum + row.net, 0),
+  216000
+);
+assert.equal(preview.previewDividends({ ...schedule, propertyId: "golden-estate" }, treasury.RETURN_COHORTS).length, 1);
+assert.equal(
+  preview.previewDividends(
+    {
+      ...schedule,
+      propertyId: "golden-estate",
+      basis: "actual/365",
+      annualRate: 36.5,
+      periodStart: "2024-02-28",
+      periodEnd: "2024-02-29",
+      creditDate: "2024-03-01",
+    },
+    [{ id: "golden-estate", name: "Test", principal: 1000, investors: 1 }]
+  )[0].gross,
+  2
+);
+reject(s.returnScheduleFormSchema, { ...schedule, creditDate: schedule.periodEnd });
+reject(s.returnScheduleFormSchema, { ...schedule, periodEnd: "2026-06-01" });
+reject(s.returnScheduleFormSchema, { ...schedule, withholdingRate: 101 });
+assert.deepEqual(preview.withdrawalTotals([treasury.WITHDRAWAL_QUEUE[0], treasury.WITHDRAWAL_QUEUE[2]]), {
+  recipients: 3000000,
+  fees: 100,
+  walletDebit: 3000100,
+});
+assert.deepEqual(preview.withdrawalTotals([]), { recipients: 0, fees: 0, walletDebit: 0 });
+assert.throws(() => preview.withdrawalTotals([treasury.WITHDRAWAL_QUEUE[0], treasury.WITHDRAWAL_QUEUE[0]]));
+const independent = {
+  batchId: "DIV-010",
+  requestedBy: "staff-tunde",
+  checkerId: "staff-nneka",
+  reason: "Independent funding and duplicate review",
+  version: 1,
+  idempotencyKey: uuid,
+};
+accept(s.independentBatchRequestSchema, independent);
+reject(s.independentBatchRequestSchema, { ...independent, checkerId: "staff-tunde" });
+reject(s.adminWithdrawalBatchRequestSchema, { ...independent, withdrawalIds: ["WD-041", "WD-041"] });
+reject(s.manualLedgerFormSchema, {
+  accountId: "escrow",
+  direction: "debit",
+  amount: 25000,
+  counterAccount: "bank-charges",
+  memo: "Bank fee review for monthly operating charges",
+  supportingReference: "ST-881",
+  checkerId: "staff-nneka",
+});
+reject(s.accrualOverrideFormSchema, {
+  reference: "ACC-GE-0104",
+  existing: 4000,
+  proposed: 4000,
+  reason: "Correct partial period accrual calculation",
+  evidenceReference: "FIN-021",
+  checkerId: "staff-nneka",
+});
+reject(s.settlementRetryRequestSchema, {
+  reference: "SET-118",
+  originalIdempotencyKey: "original-118",
+  status: "unknown",
+  duplicateCheck: "clear",
+  reason: "Retry after checking the provider status",
+});
+accept(s.settlementRetryRequestSchema, {
+  reference: "SET-118",
+  originalIdempotencyKey: "original-118",
+  status: "confirmed-not-settled",
+  duplicateCheck: "clear",
+  reason: "Retry after checking the provider status",
+});
+const config = {
+  environment: "sandbox",
+  endpoint: "https://sandbox.example.invalid/symplus",
+  clientId: "client-preview",
+  tenant: "sandbox-branch",
+  timeoutSeconds: 30,
+  reason: "Sandbox configuration pending independent review",
+};
+accept(s.bankingConfigFormSchema, config);
+reject(s.bankingConfigFormSchema, { ...config, environment: "production" });
+reject(s.bankingConfigFormSchema, { ...config, endpoint: "http://example.invalid" });
+reject(s.bankingConfigFormSchema, { ...config, apiSecret: "must-not-be-persisted" });
+reject(s.ledgerMappingSchema, {
+  id: "invalid",
+  event: "Deposit",
+  debitAccount: "2010",
+  creditAccount: "2010",
+  state: "draft",
+});
+assert.equal(preview.csvCell('=HYPERLINK("https://example.invalid")').charCodeAt(1), 39);
+console.log("Treasury fixtures, cent calculations, independent reviews and banking boundaries passed.");
+
+// Growth and platform screens use the same validated fixtures as their local draft stores.
+const growthSchemas = load("constant/schemas/admin-growth.ts");
+const growthDefaults = load("app/admin/(admin)/growth/_data.ts").GROWTH_DEFAULTS;
+accept(growthSchemas.adminGrowthStateSchema, growthDefaults);
+reject(growthSchemas.adminGrowthStateSchema, { ...growthDefaults, subject: " " });
+reject(growthSchemas.adminGrowthStateSchema, { ...growthDefaults, sms: "x".repeat(161) });
+reject(growthSchemas.adminGrowthStateSchema, { ...growthDefaults, broadcastStatus: "approved" });
+const platformSchemas = load("constant/schemas/admin-platform.ts");
+const platformDefaults = load("app/admin/(admin)/platform/_data.ts").PLATFORM_DEFAULTS;
+accept(platformSchemas.adminPlatformStateSchema, platformDefaults);
+reject(platformSchemas.adminPlatformStateSchema, { ...platformDefaults, environment: "production" });
+reject(platformSchemas.adminPlatformStateSchema, { ...platformDefaults, windowEnd: platformDefaults.windowStart });
+reject(platformSchemas.adminPlatformStateSchema, { ...platformDefaults, status: "pending", reviewed: false });
+accept(platformSchemas.adminPlatformStateSchema, { ...platformDefaults, status: "pending", reviewed: true });
+const matrixChange = { operation: "withdrawal", fee: 50, perTransaction: 2000000, dailyLimit: 5000000 };
+accept(platformSchemas.platformMatrixChangeSchema, matrixChange);
+reject(platformSchemas.platformMatrixChangeSchema, { ...matrixChange, fee: -1 });
+reject(platformSchemas.platformMatrixChangeSchema, { ...matrixChange, dailyLimit: 1000 });
+console.log("Growth drafts and platform limits, maintenance windows and review validation passed.");

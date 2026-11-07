@@ -1,0 +1,76 @@
+import type { PlatformState } from "@/constant/schemas/admin-platform";
+
+export const PLATFORM_DEFAULTS: PlatformState = {
+  matrix: [
+    {
+      operation: "funding",
+      label: "Bank transfer funding",
+      fee: 0,
+      perTransaction: 5000000,
+      dailyLimit: 10000000,
+      eligibility: "KYC tier limits apply",
+    },
+    {
+      operation: "property",
+      label: "Property purchase",
+      fee: 0,
+      perTransaction: null,
+      dailyLimit: null,
+      eligibility: "Eligible investor",
+    },
+    {
+      operation: "withdrawal",
+      label: "Withdrawal",
+      fee: 50,
+      perTransaction: 2000000,
+      dailyLimit: 5000000,
+      eligibility: "Approved KYC + bank",
+    },
+    {
+      operation: "electricity",
+      label: "Utilities · electricity",
+      fee: 100,
+      perTransaction: 500000,
+      dailyLimit: 1000000,
+      eligibility: "Verified customer",
+    },
+    {
+      operation: "airtime",
+      label: "Airtime / data",
+      fee: 0,
+      perTransaction: 50000,
+      dailyLimit: 100000,
+      eligibility: "Verified phone",
+    },
+  ],
+  currency: "NGN",
+  timezone: "Africa/Lagos",
+  dateFormat: "DD MMM YYYY",
+  environment: "sandbox",
+  maintenance: false,
+  windowStart: "2026-10-25T01:00",
+  windowEnd: "2026-10-25T02:00",
+  headline: "We’ll be back shortly",
+  message: "Scheduled maintenance is in progress. Your records remain available after service resumes.",
+  reason: "Align withdrawal and utility fees with approved pricing policy.",
+  reference: "CFG-024 · pricing review",
+  approver: "staff-nneka",
+  reviewed: false,
+  status: "draft",
+};
+export const CONFIG_HISTORY = [
+  {
+    version: "v2.3",
+    change: "Timezone display clarification",
+    actor: "Nneka Eze",
+    approval: "Approved · illustrative",
+    effective: "01 Oct 2026",
+  },
+  {
+    version: "v2.2",
+    change: "PIN confirmation policy copy",
+    actor: "Amaka Obi",
+    approval: "Approved · illustrative",
+    effective: "15 Sep 2026",
+  },
+];

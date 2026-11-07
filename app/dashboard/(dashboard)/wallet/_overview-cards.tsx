@@ -2,13 +2,13 @@
 
 import * as React from "react";
 
+import { CardMenu } from "@/components/dashboard/card-menu";
 import { DonutChart } from "@/components/primitives/donut-chart";
 import { MultiAreaChart } from "@/components/primitives/multi-area-chart";
 import { SelectField } from "@/components/primitives/select-field";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceLine } from "recharts";
 
-import { CardMenu } from "../_card-menu";
 import { BALANCES, TOTAL_BALANCE, TRANSFERS_BY_PERIOD, TRANSFER_PERIODS } from "./_data";
 
 const BALANCE_MENU_ITEMS = ["Print data", "Reset data", "Download data"];

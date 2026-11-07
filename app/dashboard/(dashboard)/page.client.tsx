@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 
+import { CardMenu } from "@/components/dashboard/card-menu";
 import { ProgressRing } from "@/components/primitives/progress-ring";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { toast } from "sonner";
 
 import { AssetsCard } from "./_assets-card";
-import { CardMenu } from "./_card-menu";
 import { STATS } from "./_data";
 import { TransactionTables } from "./_transaction-tables";
 

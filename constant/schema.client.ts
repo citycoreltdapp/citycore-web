@@ -8,7 +8,21 @@ export * from "./schemas/finance";
 export * from "./schemas/insights";
 export * from "./schemas/ai";
 export * from "./schemas/support";
+export * from "./schemas/admin";
 // Existing authentication, onboarding and withdrawal forms keep their established contracts.
 export * from "./auth";
 export * from "./onboarding";
 export { withdrawalDetailsSchema, withdrawalSchema, type WithdrawalFormData } from "./withdrawal";
+
+export * from "./schemas/admin-account";
+
+export * from "./schemas/admin-people";
+
+export * from "./schemas/admin-investments";
+
+export * from "./schemas/admin-treasury";
+
+export * from "./schemas/admin-settings";
+export * from "./schemas/admin-reports";
+export * from "./schemas/admin-support";
+export * from "./schemas/admin-content";

@@ -120,8 +120,12 @@ function EmptyState() {
   );
 }
 
-export function NotificationsPopover() {
-  const [notifications, setNotifications] = React.useState(NOTIFICATIONS);
+export function NotificationsPopover({
+  initialNotifications = NOTIFICATIONS,
+}: {
+  initialNotifications?: DashboardNotification[];
+}) {
+  const [notifications, setNotifications] = React.useState(initialNotifications);
   const [tab, setTab] = React.useState("all");
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;

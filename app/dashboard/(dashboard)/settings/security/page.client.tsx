@@ -62,7 +62,7 @@ function SocialConnections() {
   );
 }
 
-export function Client$SecuritySettingsPage() {
+export function Client$SecuritySettingsPage({ showNavigation = true }: { showNavigation?: boolean }) {
   const [expanded, setExpanded] = useState(true);
   const { twoFactorSelection, setTwoFactorSelection } = useSettings();
   const form = useForm({
@@ -87,7 +87,7 @@ export function Client$SecuritySettingsPage() {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SettingsNavigation />
+        {showNavigation && <SettingsNavigation />}
         <Button
           className="h-10 rounded-full px-5"
           onClick={() =>

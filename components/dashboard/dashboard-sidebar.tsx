@@ -15,12 +15,13 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { dashboardNavGroups } from "@/lib/dashboard-nav";
+import { type NavGroup, dashboardNavGroups } from "@/lib/dashboard-nav";
 import { Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { toast } from "sonner";
 
 const SIDEBAR_STYLE = { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties;
 
@@ -39,14 +40,15 @@ function useSavedSidebarState() {
   return [choice ?? savedIsOpen, setChoice] as const;
 }
 
-function DashboardNav() {
+function DashboardNav({ groups, basePath }: { groups: NavGroup[]; basePath: string }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  // The proxy serves this tenant from /dashboard, and the server sees that path while the browser sees "/".
-  const pathname = usePathname().replace(/^\/dashboard/, "") || "/";
+  const rawPathname = usePathname();
+  // The proxy serves each tenant from its own folder, and the server sees that path while the browser sees "/".
+  const pathname = (rawPathname.startsWith(basePath) ? rawPathname.slice(basePath.length) : rawPathname) || "/";
 
-  const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
+  const isActive = (url?: string) => !!url && (url === "/" ? pathname === "/" : pathname.startsWith(url));
 
-  return dashboardNavGroups.map((group) => (
+  return groups.map((group) => (
     <SidebarGroup key={group.label} className="px-4 group-data-[collapsible=icon]:px-0">
       <SidebarGroupLabel className="text-[10px] tracking-wide text-muted-foreground uppercase">
         {group.label}
@@ -58,7 +60,9 @@ function DashboardNav() {
               isActive={isActive(item.url)}
               tooltip={item.title}
               className={NAV_BUTTON_STYLES}
-              render={<Link href={item.url} onClick={() => isMobile && setOpenMobile(false)} />}
+              // ponytail: a nav item with no url is a page that isn't built yet, so it says so instead of a 404.
+              onClick={item.url ? undefined : () => toast.info(`${item.title} isn't built yet.`)}
+              render={item.url ? <Link href={item.url} onClick={() => isMobile && setOpenMobile(false)} /> : undefined}
             >
               <HugeiconsIcon icon={item.icon} aria-hidden />
               <span className="group-data-[collapsible=icon]:sr-only">{item.title}</span>
@@ -70,7 +74,25 @@ function DashboardNav() {
   ));
 }
 
-export function DashboardSidebar({ children }: { children: React.ReactNode }) {
+interface DashboardSidebarProps {
+  children: React.ReactNode;
+  groups?: NavGroup[];
+  /** The app/ folder this tenant is served from. */
+  basePath?: string;
+  brand?: string;
+  /** Sits above the log out button, on the expanded sidebar only, and hides on short screens to leave room for the nav. */
+  footer?: React.ReactNode;
+  logOutButton?: React.ReactElement;
+}
+
+export function DashboardSidebar({
+  children,
+  groups = dashboardNavGroups,
+  basePath = "/dashboard",
+  brand = "City Core",
+  footer,
+  logOutButton = <Link href="/signin" />,
+}: DashboardSidebarProps) {
   const [isOpen, setIsOpen] = useSavedSidebarState();
 
   return (
@@ -83,20 +105,26 @@ export function DashboardSidebar({ children }: { children: React.ReactNode }) {
           >
             <Image src="/assets/images/logo.png" alt="" width={34} height={40} className="size-8 object-contain" />
             <span className="text-2xl font-semibold tracking-tight text-foreground group-data-[collapsible=icon]:hidden">
-              City Core
+              {brand}
             </span>
           </Link>
         </SidebarHeader>
 
         <SidebarContent className="gap-4 pt-2">
-          <DashboardNav />
+          <React.Suspense
+            fallback={<div aria-label="Loading navigation" className="mx-4 h-80 animate-pulse rounded-xl bg-muted" />}
+          >
+            <DashboardNav groups={groups} basePath={basePath} />
+          </React.Suspense>
         </SidebarContent>
+
+        {footer && <SidebarFooter className="p-4 group-data-[collapsible=icon]:hidden">{footer}</SidebarFooter>}
 
         {/* Figma only shows this on the collapsed rail. Expanded, it's in the avatar menu. */}
         <SidebarFooter className="hidden pb-6 group-data-[collapsible=icon]:flex">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Log out" className={NAV_BUTTON_STYLES} render={<Link href="/signin" />}>
+              <SidebarMenuButton tooltip="Log out" className={NAV_BUTTON_STYLES} render={logOutButton}>
                 <HugeiconsIcon icon={Logout01Icon} aria-hidden />
                 <span className="group-data-[collapsible=icon]:sr-only">Log out</span>
               </SidebarMenuButton>

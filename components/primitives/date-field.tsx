@@ -41,7 +41,7 @@ function DateCalendar({
       captionLayout="dropdown"
       selected={selected}
       onSelect={onSelect}
-      defaultMonth={selected ?? latest}
+      defaultMonth={selected ?? new Date()}
       startMonth={minDate}
       endMonth={latest}
       reverseYears={reverseYears}

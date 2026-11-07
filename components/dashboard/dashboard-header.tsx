@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
+import type { DashboardNotification } from "@/constant/notifications";
 import { ArrowLeft01Icon, ArrowRight01Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
@@ -47,7 +48,13 @@ function SidebarToggle() {
   );
 }
 
-export function DashboardHeader() {
+interface DashboardHeaderProps {
+  notifications?: DashboardNotification[];
+  /** The items in the avatar menu. */
+  accountMenuItems?: React.ReactNode;
+}
+
+export function DashboardHeader({ notifications, accountMenuItems }: DashboardHeaderProps) {
   const [search, setSearch] = React.useState("");
 
   return (
@@ -67,7 +74,7 @@ export function DashboardHeader() {
 
       <div className="ml-auto flex items-center gap-3">
         <ThemeToggle variant="ghost" className="size-10 rounded-full bg-muted [&_svg]:size-5" />
-        <NotificationsPopover />
+        <NotificationsPopover initialNotifications={notifications} />
 
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -80,11 +87,15 @@ export function DashboardHeader() {
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem render={<Link href="/settings" />}>Settings & Security</DropdownMenuItem>
-            {/* ponytail: no sessions yet, so this only goes to sign-in. Sign out through the API here. */}
-            <DropdownMenuItem variant="destructive" render={<Link href="/signin" />}>
-              Log out
-            </DropdownMenuItem>
+            {accountMenuItems ?? (
+              <>
+                <DropdownMenuItem render={<Link href="/settings" />}>Settings & Security</DropdownMenuItem>
+                {/* ponytail: no sessions yet, so this only goes to sign-in. Sign out through the API here. */}
+                <DropdownMenuItem variant="destructive" render={<Link href="/signin" />}>
+                  Log out
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
