@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { AppModal } from "@/components/primitives/app-modal";
 import {
   Sidebar,
   SidebarContent,
@@ -20,7 +21,7 @@ import { Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 const SIDEBAR_STYLE = { "--sidebar-width-icon": "4.5rem" } as React.CSSProperties;
@@ -62,7 +63,11 @@ function DashboardNav({ groups, basePath }: { groups: NavGroup[]; basePath: stri
               className={NAV_BUTTON_STYLES}
               // ponytail: a nav item with no url is a page that isn't built yet, so it says so instead of a 404.
               onClick={item.url ? undefined : () => toast.info(`${item.title} isn't built yet.`)}
-              render={item.url ? <Link href={hrefFor(item.url)} onClick={() => isMobile && setOpenMobile(false)} /> : undefined}
+              render={
+                item.url ? (
+                  <Link href={hrefFor(item.url)} onClick={() => isMobile && setOpenMobile(false)} />
+                ) : undefined
+              }
             >
               <HugeiconsIcon icon={item.icon} aria-hidden />
               <span className="group-data-[collapsible=icon]:sr-only">{item.title}</span>
@@ -91,9 +96,23 @@ export function DashboardSidebar({
   basePath = "/dashboard",
   brand = "City Core",
   footer,
-  logOutButton = <Link href="/dashboard/signin" />,
+  logOutButton,
 }: DashboardSidebarProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useSavedSidebarState();
+  const logout = logOutButton ?? (
+    <button
+      type="button"
+      onClick={() =>
+        AppModal.confirm({
+          title: "Log out?",
+          description: "You'll need to sign in again to get back in.",
+          confirmLabel: "Log out",
+          onConfirm: () => router.push("/dashboard/signin"),
+        })
+      }
+    />
+  );
 
   return (
     <SidebarProvider open={isOpen} onOpenChange={setIsOpen} style={SIDEBAR_STYLE}>
@@ -124,7 +143,7 @@ export function DashboardSidebar({
         <SidebarFooter className="hidden pb-6 group-data-[collapsible=icon]:flex">
           <SidebarMenu>
             <SidebarMenuItem>
-              <SidebarMenuButton tooltip="Log out" className={NAV_BUTTON_STYLES} render={logOutButton}>
+              <SidebarMenuButton tooltip="Log out" className={NAV_BUTTON_STYLES} render={logout}>
                 <HugeiconsIcon icon={Logout01Icon} aria-hidden />
                 <span className="group-data-[collapsible=icon]:sr-only">Log out</span>
               </SidebarMenuButton>

@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { homeDashboardSchema } from "@/constant/schemas/dashboard";
+import { holdingListResponseSchema } from "@/constant/schemas/portfolio";
+import { API_ROUTES } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import { ArrowUpRight01Icon, Location01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -21,13 +25,6 @@ import { HOLDINGS, type Holding, accruedYield, monthsElapsed, payoutAtMaturity, 
 
 const maturityLabel = (date: string) =>
   new Date(`${date}T00:00:00Z`).toLocaleDateString("en-GB", { timeZone: "UTC", month: "short", year: "numeric" });
-
-const ACTIVE = HOLDINGS.filter((item) => item.status === "active");
-const MATURED = HOLDINGS.filter((item) => item.status === "matured");
-const invested = ACTIVE.reduce((sum, item) => sum + item.amountInvested, 0);
-const earned = ACTIVE.reduce((sum, item) => sum + accruedYield(item), 0);
-const atMaturity = ACTIVE.reduce((sum, item) => sum + payoutAtMaturity(item), 0);
-const HISTORY = portfolioSeries(HOME_DASHBOARD, "oneYear");
 
 function HoldingCard({ item, index }: { item: Holding; index: number }) {
   const { property } = item;
@@ -145,10 +142,26 @@ const COLUMNS: ColumnDef<Holding>[] = [
 ];
 
 export default function InvestmentsPage() {
+  const { data: holdings } = useApiQuery({
+    path: API_ROUTES.holdings,
+    schema: holdingListResponseSchema,
+    mock: HOLDINGS,
+  });
+  const { data: dashboard } = useApiQuery({
+    path: API_ROUTES.dashboard,
+    schema: homeDashboardSchema,
+    mock: HOME_DASHBOARD,
+  });
   const [status, setStatus] = useState("active");
   const [view, setView] = useState("grid");
   const [sort, setSort] = useState("recent");
-  const rows = (status === "matured" ? MATURED : ACTIVE).toSorted((a, b) =>
+  const active = (holdings ?? []).filter((item) => item.status === "active");
+  const matured = (holdings ?? []).filter((item) => item.status === "matured");
+  const invested = active.reduce((sum, item) => sum + item.amountInvested, 0);
+  const earned = active.reduce((sum, item) => sum + accruedYield(item), 0);
+  const atMaturity = active.reduce((sum, item) => sum + payoutAtMaturity(item), 0);
+  const history = dashboard ? portfolioSeries(dashboard, "oneYear") : [];
+  const rows = (status === "matured" ? matured : active).toSorted((a, b) =>
     sort === "oldest" ? a.startDate.localeCompare(b.startDate) : b.startDate.localeCompare(a.startDate)
   );
 
@@ -162,7 +175,11 @@ export default function InvestmentsPage() {
             risk.
           </p>
         </div>
-        <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/ask-ai/explore" />} nativeButton={false}>
+        <Button
+          className="h-10 rounded-full px-5"
+          render={<Link href="/dashboard/ask-ai/explore" />}
+          nativeButton={false}
+        >
           Invest with AI
         </Button>
       </header>
@@ -190,7 +207,7 @@ export default function InvestmentsPage() {
         </div>
         <div className="border-t border-border px-5 pt-5 pb-3">
           <LineChart
-            data={HISTORY}
+            data={history}
             config={{ value: { label: "Portfolio value" } }}
             xAxisKey="period"
             activeKey="value"
@@ -209,8 +226,8 @@ export default function InvestmentsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={status} onValueChange={setStatus}>
           <TabsList aria-label="Investment status">
-            <TabsTrigger value="active">Active · {ACTIVE.length}</TabsTrigger>
-            <TabsTrigger value="matured">Matured · {MATURED.length}</TabsTrigger>
+            <TabsTrigger value="active">Active · {active.length}</TabsTrigger>
+            <TabsTrigger value="matured">Matured · {matured.length}</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="flex items-center gap-3">

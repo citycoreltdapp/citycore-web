@@ -13,8 +13,11 @@ import {
   MINIMUM_CARD_FUNDING,
   fundWithCardRequestSchema,
   fundingFormSchema,
+  transactionListResponseSchema,
+  walletSchema,
 } from "@/constant/schemas/finance";
-import { toApi } from "@/lib/api";
+import { API_ROUTES, toApi } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AddCircleIcon,
@@ -52,7 +55,7 @@ type FundingMethodKey = FundingFormValues["method"];
 const FUNDING_METHODS = {
   bank: {
     label: "Bank transfer",
-    hint: `${WALLET.fundingAccount.bankName} · reflects in minutes`,
+    hint: "Reflects in minutes",
     icon: BankIcon,
   },
   card: {
@@ -103,6 +106,8 @@ function FundingDetailsCard({
   onMethodChange: (method: FundingMethodKey) => void;
   error?: string;
 }) {
+  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+
   return (
     <Card className="min-w-0 gap-0 rounded-2xl py-0 ring-foreground/8">
       <div className="flex flex-col gap-3 p-5">
@@ -153,7 +158,11 @@ function FundingDetailsCard({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">{FUNDING_METHODS[key].label}</span>
-                <span className="block truncate text-xs text-muted-foreground">{FUNDING_METHODS[key].hint}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {key === "bank" && wallet
+                    ? `${wallet.fundingAccount.bankName} · reflects in minutes`
+                    : FUNDING_METHODS[key].hint}
+                </span>
               </span>
               <RadioGroupItem value={key} />
             </label>
@@ -165,7 +174,8 @@ function FundingDetailsCard({
 }
 
 function FundingSummaryCard({ amount, methodKey }: { amount: number | undefined; methodKey: FundingMethodKey }) {
-  const account = WALLET.fundingAccount;
+  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const account = wallet?.fundingAccount;
 
   return (
     <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
@@ -175,7 +185,7 @@ function FundingSummaryCard({ amount, methodKey }: { amount: number | undefined;
         <p className="mt-1 text-xs text-muted-foreground">Via {FUNDING_METHODS[methodKey].label.toLowerCase()}</p>
       </div>
 
-      {methodKey === "bank" ? (
+      {methodKey === "bank" && account ? (
         <>
           <dl className="space-y-2.5 border-t border-border pt-4">
             <SummaryRow label="Bank" value={account.bankName} />
@@ -245,6 +255,8 @@ function FundingSection() {
 }
 
 function WalletBalanceCard() {
+  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+
   return (
     <Card className="relative gap-6 overflow-hidden rounded-2xl bg-[#121212] px-5 py-5 text-white ring-white/10">
       <div
@@ -255,11 +267,11 @@ function WalletBalanceCard() {
         <HugeiconsIcon icon={Wallet01Icon} aria-hidden className="size-4" />
         Available balance
       </div>
-      <p className="relative text-4xl font-light tracking-tight tabular-nums">{naira(WALLET.balance)}</p>
+      <p className="relative text-4xl font-light tracking-tight tabular-nums">{naira(wallet?.balance ?? 0)}</p>
       <p className="relative flex items-center gap-2 border-t border-white/10 pt-4 text-sm text-white/70">
         <HugeiconsIcon icon={Clock01Icon} aria-hidden className="size-4 text-warning" />
-        {WALLET.pendingWithdrawals > 0
-          ? `${naira(WALLET.pendingWithdrawals)} pending withdrawal`
+        {wallet && wallet.pendingWithdrawals > 0
+          ? `${naira(wallet.pendingWithdrawals)} pending withdrawal`
           : "No pending withdrawals"}
       </p>
     </Card>
@@ -295,14 +307,19 @@ function AccountRow({
 }
 
 function WalletAccountsCard() {
-  const payout = WALLET.payoutAccount ?? null;
+  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const payout = wallet?.payoutAccount ?? null;
   return (
     <Card className="min-w-0 rounded-2xl ring-foreground/8">
       <CardHeader className="border-b border-border px-5 pb-4">
         <CardTitle className="text-base font-semibold">Accounts</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col divide-y divide-border px-5">
-        <AccountRow icon={Wallet01Icon} label="Funding account · transfers in" account={WALLET.fundingAccount} />
+        <AccountRow
+          icon={Wallet01Icon}
+          label="Funding account · transfers in"
+          account={wallet?.fundingAccount ?? null}
+        />
         <AccountRow
           icon={BankIcon}
           label={payout ? "Payout account · withdrawals out" : "Add a payout account"}
@@ -323,9 +340,15 @@ function WalletAccountsCard() {
 }
 
 const COLUMNS: ColumnDef<Transaction, unknown>[] = Object.values(TRANSACTION_COLUMNS);
-const RECENT = TRANSACTIONS.slice(0, 6);
 
 function RecentTransactionsCard() {
+  const { data: transactions } = useApiQuery({
+    path: API_ROUTES.walletTransactions,
+    schema: transactionListResponseSchema,
+    mock: TRANSACTIONS,
+  });
+  const recent = (transactions ?? []).slice(0, 6);
+
   return (
     <Card className="rounded-2xl ring-foreground/8">
       <CardHeader className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-5 pb-4">
@@ -334,14 +357,14 @@ function RecentTransactionsCard() {
           href="/dashboard/transactions"
           className="flex items-center gap-1.5 text-sm font-medium text-chart-4 underline-offset-4 hover:underline"
         >
-          View all {TRANSACTIONS.length} transactions
+          View all {(transactions ?? []).length} transactions
           <HugeiconsIcon icon={ArrowRight02Icon} aria-hidden className="size-4" />
         </Link>
       </CardHeader>
       <CardContent className="px-5">
         <DataTable
           columns={COLUMNS}
-          data={RECENT}
+          data={recent}
           showPagination={false}
           getRowId={(transaction) => transaction.id}
           rowClassName="border-none even:[&>td]:bg-muted"

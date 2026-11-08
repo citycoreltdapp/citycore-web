@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Downline, type ReferralDashboard, type ReferralEarning } from "@/constant/schemas/referrals";
+import {
+  type Downline,
+  type ReferralDashboard,
+  type ReferralEarning,
+  referralDashboardResponseSchema,
+} from "@/constant/schemas/referrals";
+import { API_ROUTES } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import { REFERRAL_DASHBOARD, REFERRAL_PLAN, referralTotals } from "@/lib/referrals";
 import { useReferredBy } from "@/lib/referred-by";
 import {
@@ -537,7 +544,12 @@ function PlanCard() {
 }
 
 export default function Client$ReferralsPage() {
-  const data = REFERRAL_DASHBOARD;
+  const { data } = useApiQuery({
+    path: API_ROUTES.referrals,
+    schema: referralDashboardResponseSchema,
+    mock: REFERRAL_DASHBOARD,
+  });
+  if (!data) return null;
 
   return (
     <>

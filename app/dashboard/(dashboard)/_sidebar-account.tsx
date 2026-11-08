@@ -1,5 +1,6 @@
 "use client";
 
+import { AppModal } from "@/components/primitives/app-modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { KycStatus } from "@/constant/onboarding";
@@ -8,6 +9,7 @@ import { ArrowRight01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { PROFILE } from "./_data";
 
@@ -19,12 +21,18 @@ const STATUS = {
     cta: "Verify your identity · 3 steps",
   },
   pending: { label: "Verification in review", dot: "bg-warning", href: null, cta: null },
-  actionRequired: { label: "Needs attention", dot: "bg-warning", href: "/dashboard/onboarding", cta: "Review and resubmit" },
+  actionRequired: {
+    label: "Needs attention",
+    dot: "bg-warning",
+    href: "/dashboard/onboarding",
+    cta: "Review and resubmit",
+  },
   verified: { label: "Verified investor", dot: "bg-success", href: null, cta: null },
 } as const satisfies Record<KycStatus, unknown>;
 
 /** The investor's account at the foot of the sidebar: who's signed in, their KYC status, and log out. */
 export function SidebarAccount() {
+  const router = useRouter();
   const status = useKycStatus();
   const meta = status ? STATUS[status] : null;
 
@@ -64,8 +72,14 @@ export function SidebarAccount() {
           variant="ghost"
           size="icon"
           aria-label="Log out"
-          nativeButton={false}
-          render={<Link href="/dashboard/signin" />}
+          onClick={() =>
+            AppModal.confirm({
+              title: "Log out?",
+              description: "You'll need to sign in again to get back in.",
+              confirmLabel: "Log out",
+              onConfirm: () => router.push("/dashboard/signin"),
+            })
+          }
           className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
         >
           <HugeiconsIcon icon={Logout01Icon} aria-hidden />

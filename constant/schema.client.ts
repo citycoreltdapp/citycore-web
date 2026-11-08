@@ -27,3 +27,6 @@ export * from "./schemas/admin-settings";
 export * from "./schemas/admin-reports";
 export * from "./schemas/admin-support";
 export * from "./schemas/admin-content";
+export * from "./schemas/admin-mail";
+export * from "./schemas/admin-blog";
+export * from "./schemas/admin-media";

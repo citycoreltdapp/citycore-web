@@ -18,7 +18,7 @@ type ModalButtonProps = React.ComponentProps<typeof Button>;
 export interface AppModalOptions {
   title: string;
   description?: string;
-  content: React.ReactNode;
+  content?: React.ReactNode;
   footer?: React.ReactNode;
   /** Closes the modal after its onClick runs. Use `footer` for buttons that keep it open, such as async saves. */
   primaryButton?: ModalButtonProps;
@@ -38,6 +38,25 @@ let setConfig: React.Dispatch<React.SetStateAction<AppModalOptions | null>> | nu
 export const AppModal = {
   open: (options: AppModalOptions) => setConfig?.(options),
   close: () => setConfig?.(null),
+  /** A short confirm or cancel dialog. The confirm button closes the modal after it runs. */
+  confirm: ({
+    title,
+    description,
+    confirmLabel,
+    onConfirm,
+  }: {
+    title: string;
+    description: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  }) =>
+    setConfig?.({
+      title,
+      description,
+      size: "small",
+      secondaryButton: { children: "Cancel" },
+      primaryButton: { children: confirmLabel, variant: "destructive", onClick: onConfirm },
+    }),
   updateConfig: (partial: Partial<AppModalOptions>) =>
     setConfig?.((current) => (current ? { ...current, ...partial } : current)),
 };
@@ -80,17 +99,19 @@ export function AppModalProvider({ children }: { children: React.ReactNode }) {
               {config.description && <DialogDescription>{config.description}</DialogDescription>}
             </DialogHeader>
 
-            <div
-              key={config.stepKey ?? "content"}
-              className={cn(
-                "min-h-0 flex-1 overflow-y-auto p-6",
-                config.stepKey !== undefined && "animate-in fade-in",
-                config.stepKey !== undefined &&
-                  (config.stepDirection === "backward" ? "slide-in-from-left-4" : "slide-in-from-right-4")
-              )}
-            >
-              {config.content}
-            </div>
+            {config.content != null && (
+              <div
+                key={config.stepKey ?? "content"}
+                className={cn(
+                  "min-h-0 flex-1 overflow-y-auto p-6",
+                  config.stepKey !== undefined && "animate-in fade-in",
+                  config.stepKey !== undefined &&
+                    (config.stepDirection === "backward" ? "slide-in-from-left-4" : "slide-in-from-right-4")
+                )}
+              >
+                {config.content}
+              </div>
+            )}
 
             {(config.footer || primaryButton || secondaryButton) && (
               <DialogFooter className="m-0 shrink-0 rounded-none px-6 py-4">

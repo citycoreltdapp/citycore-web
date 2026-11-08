@@ -480,3 +480,29 @@ accept(platformSchemas.platformMatrixChangeSchema, matrixChange);
 reject(platformSchemas.platformMatrixChangeSchema, { ...matrixChange, fee: -1 });
 reject(platformSchemas.platformMatrixChangeSchema, { ...matrixChange, dailyLimit: 1000 });
 console.log("Growth drafts and platform limits, maintenance windows and review validation passed.");
+
+const mail = load("lib/mail-preview.ts");
+const mailSchemas = load("constant/schemas/admin-mail.ts");
+const emailDesk = load("app/admin/(admin)/emails/_data.ts").EMAIL_DESK;
+accept(mailSchemas.emailDeskSchema, emailDesk);
+assert.equal(mail.birthdaySendOn(2, 29, 2026), "2026-02-28");
+assert.equal(mail.birthdaySendOn(2, 29, 2028), "2028-02-29");
+assert.equal(mail.nextBirthdaySend(2, 29, "2026-11-08"), "2027-02-28");
+assert.equal(mail.emailDecision({ security: false, emailOptIn: false }).status, "skipped");
+assert.equal(mail.emailDecision({ security: true, emailOptIn: false }).status, "queued");
+assert.equal(mail.emailDecision({ security: false, emailOptIn: true, birthdayAlreadySent: true }).status, "skipped");
+
+const blogSchemas = load("constant/schemas/admin-blog.ts");
+const blogDesk = load("app/admin/(admin)/blog/_data.ts").BLOG_DESK;
+accept(blogSchemas.blogDeskSchema, blogDesk);
+accept(blogSchemas.blogPublishRequestSchema, { role: "editor", status: "published" });
+reject(blogSchemas.blogPublishRequestSchema, { role: "media-publicity", status: "published" });
+
+const media = load("lib/media-preview.ts");
+const mediaSchemas = load("constant/schemas/admin-media.ts");
+accept(mediaSchemas.mediaDeskSchema, load("app/admin/(admin)/media/_data.ts").MEDIA_DESK);
+assert.equal(media.inspectMedia("image/jpeg", 5_000_000).ok, true);
+assert.equal(media.inspectMedia("image/jpeg", 5_000_001).ok, false);
+assert.equal(media.inspectMedia("image/gif", 1000).ok, false);
+assert.equal(media.inspectMedia("application/pdf", 10_000_001).ok, false);
+console.log("Email, blog and media preview rules passed.");

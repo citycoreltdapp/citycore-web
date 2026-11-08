@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { AppModal } from "@/components/primitives/app-modal";
 import { SearchField } from "@/components/primitives/search-field";
 import { ThemeToggle } from "@/components/primitives/theme-toggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -16,6 +17,7 @@ import type { InboxMessage } from "@/constant/notifications";
 import { ArrowLeft01Icon, ArrowRight01Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { NotificationsPopover } from "./notifications-popover";
@@ -55,6 +57,7 @@ interface DashboardHeaderProps {
 }
 
 export function DashboardHeader({ notifications, accountMenuItems }: DashboardHeaderProps) {
+  const router = useRouter();
   const [search, setSearch] = React.useState("");
 
   return (
@@ -74,11 +77,13 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
 
       <div className="ml-auto flex items-center gap-3">
         <ThemeToggle variant="ghost" className="size-10 rounded-full bg-muted [&_svg]:size-5" />
-        <NotificationsPopover
-          messages={notifications?.messages}
-          initialReadIds={notifications?.readIds}
-          asOf={notifications?.asOf}
-        />
+        <React.Suspense fallback={null}>
+          <NotificationsPopover
+            messages={notifications?.messages}
+            initialReadIds={notifications?.readIds}
+            asOf={notifications?.asOf}
+          />
+        </React.Suspense>
 
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -95,7 +100,17 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
               <>
                 <DropdownMenuItem render={<Link href="/dashboard/settings" />}>Settings & Security</DropdownMenuItem>
                 {/* ponytail: no sessions yet, so this only goes to sign-in. Sign out through the API here. */}
-                <DropdownMenuItem variant="destructive" render={<Link href="/dashboard/signin" />}>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() =>
+                    AppModal.confirm({
+                      title: "Log out?",
+                      description: "You'll need to sign in again to get back in.",
+                      confirmLabel: "Log out",
+                      onConfirm: () => router.push("/dashboard/signin"),
+                    })
+                  }
+                >
                   Log out
                 </DropdownMenuItem>
               </>

@@ -3,6 +3,7 @@
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { DashboardSidebar } from "@/components/dashboard/dashboard-sidebar";
 import { DashboardSidebarInset } from "@/components/dashboard/dashboard-sidebar-inset";
+import { AppModal } from "@/components/primitives/app-modal";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { adminNavGroups } from "@/lib/admin-nav";
@@ -13,7 +14,13 @@ import { toast } from "sonner";
 import { ADMIN_NOTIFICATIONS } from "./_data";
 
 // ponytail: there's no admin sign-in yet. Sign out through the API here once there is.
-const logOut = () => toast.info("Admin sign-in isn't connected to a backend yet.");
+const logOut = () =>
+  AppModal.confirm({
+    title: "Log out?",
+    description: "You'll leave the admin console on this browser.",
+    confirmLabel: "Log out",
+    onConfirm: () => toast.info("Admin sign-in isn't connected to a backend yet."),
+  });
 
 function PublicityCard() {
   return (
@@ -27,7 +34,7 @@ function PublicityCard() {
         className="pointer-events-none h-auto w-full select-none"
       />
       <p className="text-xs/5 text-muted-foreground">Reach out to your clients in minutes</p>
-      <Button className="h-9 w-full rounded-full" onClick={() => toast.info("Media & Publicity isn't built yet.")}>
+      <Button className="h-9 w-full rounded-full" nativeButton={false} render={<Link href="/admin/blog" />}>
         Media & Publicity
       </Button>
     </div>

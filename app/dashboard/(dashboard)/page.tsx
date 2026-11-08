@@ -11,6 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { type ChartConfig } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { homeDashboardSchema } from "@/constant/schemas/dashboard";
+import { walletSchema } from "@/constant/schemas/finance";
+import { API_ROUTES } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import { AddCircleIcon, ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -35,8 +39,14 @@ function axisTicks(values: number[]) {
 }
 
 function AssetsCard() {
+  const { data: dashboard } = useApiQuery({
+    path: API_ROUTES.dashboard,
+    schema: homeDashboardSchema,
+    mock: HOME_DASHBOARD,
+  });
   const [range, setRange] = React.useState<ChartRange>("oneYear");
-  const data = portfolioSeries(HOME_DASHBOARD, range);
+  if (!dashboard) return null;
+  const data = portfolioSeries(dashboard, range);
   const first = data[0]?.value ?? 0;
   const last = data.at(-1)?.value ?? 0;
   const change = first ? ((last - first) / first) * 100 : 0;
@@ -48,7 +58,7 @@ function AssetsCard() {
         <div>
           <CardTitle className="text-lg font-semibold">Portfolio value</CardTitle>
           <p className="mt-1 text-sm text-muted-foreground tabular-nums">
-            {naira(HOME_DASHBOARD.portfolioValue)}
+            {naira(dashboard.portfolioValue)}
             <span className={change >= 0 ? "ml-2 text-success" : "ml-2 text-destructive"}>
               {change >= 0 ? "+" : ""}
               {change.toFixed(1)}%
@@ -99,11 +109,6 @@ const RECENT_COLUMNS: ColumnDef<Transaction, unknown>[] = [
 
 type WalletAccount = BankAccount & { id: string; role: string };
 
-const WALLET_ACCOUNTS: WalletAccount[] = [
-  { id: "funding", role: "Funding account", ...WALLET.fundingAccount },
-  ...(WALLET.payoutAccount ? [{ id: "payout", role: "Payout account", ...WALLET.payoutAccount }] : []),
-];
-
 const ACCOUNT_COLUMNS: ColumnDef<WalletAccount, unknown>[] = [
   {
     accessorKey: "bankName",
@@ -150,12 +155,25 @@ function TableCard({ title, href, children }: { title: string; href: string; chi
 const ZEBRA_ROWS = "border-none even:bg-muted/60 hover:bg-muted/60";
 
 function TransactionTables() {
+  const { data: dashboard } = useApiQuery({
+    path: API_ROUTES.dashboard,
+    schema: homeDashboardSchema,
+    mock: HOME_DASHBOARD,
+  });
+  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const accounts: WalletAccount[] = wallet
+    ? [
+        { id: "funding", role: "Funding account", ...wallet.fundingAccount },
+        ...(wallet.payoutAccount ? [{ id: "payout", role: "Payout account", ...wallet.payoutAccount }] : []),
+      ]
+    : [];
+
   return (
     <div className="grid gap-5 xl:grid-cols-2">
       <TableCard title="Recent transactions" href="/dashboard/transactions">
         <DataTable
           columns={RECENT_COLUMNS}
-          data={HOME_DASHBOARD.recentTransactions}
+          data={dashboard?.recentTransactions ?? []}
           getRowId={(row) => row.id}
           rowClassName={ZEBRA_ROWS}
           showPagination={false}
@@ -165,7 +183,7 @@ function TransactionTables() {
       <TableCard title="Wallet accounts" href="/dashboard/wallet">
         <DataTable
           columns={ACCOUNT_COLUMNS}
-          data={WALLET_ACCOUNTS}
+          data={accounts}
           getRowId={(row) => row.id}
           rowClassName={ZEBRA_ROWS}
           showPagination={false}
@@ -216,11 +234,17 @@ function BannerArt() {
 }
 
 function WelcomeBanner() {
+  const { data: dashboard } = useApiQuery({
+    path: API_ROUTES.dashboard,
+    schema: homeDashboardSchema,
+    mock: HOME_DASHBOARD,
+  });
+
   return (
     <section className="relative overflow-hidden rounded-xl bg-[#121212] p-6 text-white md:p-8">
       <div className="relative z-10 max-w-xl lg:mr-48">
         <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Good morning, {HOME_DASHBOARD.firstName}. 👋
+          Good morning, {dashboard?.firstName ?? ""}. 👋
         </h2>
         <p className="mt-3 text-sm/6 text-white/70 md:text-base/7">
           We are here to provide you with reliable informations and Investments opportunity. don&apos;t miss out on this
@@ -243,28 +267,7 @@ const STAT_MENU_ITEMS = ["Print data", "Reset data", "Download data"];
 
 const PAYOUT_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "Africa/Lagos" });
 
-const STATS = [
-  {
-    title: "Wallet balance",
-    amount: naira(HOME_DASHBOARD.walletBalance),
-    detail: `Total balance ${naira(totalBalance(HOME_DASHBOARD))}`,
-  },
-  { title: "Portfolio value", amount: naira(HOME_DASHBOARD.portfolioValue), detail: "Principal plus accrued yield" },
-  {
-    title: "Accrued yield",
-    amount: naira(HOME_DASHBOARD.accruedYield),
-    detail: `${HOME_DASHBOARD.averageYield}% average yield`,
-  },
-  {
-    title: "Active investments",
-    amount: String(HOME_DASHBOARD.activeInvestments),
-    detail: HOME_DASHBOARD.nextPayout
-      ? `Next payout ${PAYOUT_DATE.format(new Date(HOME_DASHBOARD.nextPayout))}`
-      : "No payout scheduled",
-  },
-];
-
-function StatCard({ title, amount, detail }: (typeof STATS)[number]) {
+function StatCard({ title, amount, detail }: { title: string; amount: string; detail: string }) {
   return (
     <Card className="ring-0">
       <CardHeader className="flex items-center justify-between border-b border-dashed px-5 pb-3">
@@ -280,6 +283,34 @@ function StatCard({ title, amount, detail }: (typeof STATS)[number]) {
 }
 
 export default function Client$DashboardPage() {
+  const { data: dashboard } = useApiQuery({
+    path: API_ROUTES.dashboard,
+    schema: homeDashboardSchema,
+    mock: HOME_DASHBOARD,
+  });
+  const stats = dashboard
+    ? [
+        {
+          title: "Wallet balance",
+          amount: naira(dashboard.walletBalance),
+          detail: `Total balance ${naira(totalBalance(dashboard))}`,
+        },
+        { title: "Portfolio value", amount: naira(dashboard.portfolioValue), detail: "Principal plus accrued yield" },
+        {
+          title: "Accrued yield",
+          amount: naira(dashboard.accruedYield),
+          detail: `${dashboard.averageYield}% average yield`,
+        },
+        {
+          title: "Active investments",
+          amount: String(dashboard.activeInvestments),
+          detail: dashboard.nextPayout
+            ? `Next payout ${PAYOUT_DATE.format(new Date(dashboard.nextPayout))}`
+            : "No payout scheduled",
+        },
+      ]
+    : [];
+
   return (
     <>
       <WelcomeBanner />
@@ -292,7 +323,7 @@ export default function Client$DashboardPage() {
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {STATS.map((stat) => (
+        {stats.map((stat) => (
           <StatCard key={stat.title} {...stat} />
         ))}
       </div>

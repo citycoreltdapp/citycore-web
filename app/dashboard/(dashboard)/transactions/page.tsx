@@ -14,6 +14,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { transactionListResponseSchema } from "@/constant/schemas/finance";
+import { API_ROUTES } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import { ArrowDown01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
@@ -67,8 +70,13 @@ export default function Client$TransactionsPage() {
   const [sort, setSort] = React.useState(SORT_OPTIONS[0].value);
   const [type, setType] = React.useState<TransactionType | "all">("all");
 
+  const { data: transactions } = useApiQuery({
+    path: API_ROUTES.walletTransactions,
+    schema: transactionListResponseSchema,
+    mock: TRANSACTIONS,
+  });
   const term = search.trim().toLowerCase();
-  const matching = TRANSACTIONS.filter(
+  const matching = (transactions ?? []).filter(
     (tx) =>
       (type === "all" || tx.type === type) &&
       (!term ||

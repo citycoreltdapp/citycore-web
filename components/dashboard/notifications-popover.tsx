@@ -12,7 +12,10 @@ import {
   NOTIFICATION_TOPIC_LABELS,
   type NotificationTopic,
   READ_NOTIFICATION_IDS,
+  inboxResponseSchema,
 } from "@/constant/notifications";
+import { API_ROUTES } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import {
   ChartIncreaseIcon,
   Notification01Icon,
@@ -142,7 +145,7 @@ function EmptyState() {
 }
 
 export function NotificationsPopover({
-  messages = NOTIFICATIONS,
+  messages: messagesProp,
   initialReadIds = READ_NOTIFICATION_IDS,
   asOf = INBOX_AS_OF,
 }: {
@@ -150,6 +153,8 @@ export function NotificationsPopover({
   initialReadIds?: string[];
   asOf?: string;
 }) {
+  const { data } = useApiQuery({ path: API_ROUTES.notifications, schema: inboxResponseSchema, mock: NOTIFICATIONS });
+  const messages = messagesProp ?? data ?? [];
   const [readIds, setReadIds] = React.useState(() => new Set(initialReadIds));
   const [tab, setTab] = React.useState("all");
 

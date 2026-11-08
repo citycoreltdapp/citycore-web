@@ -7,7 +7,10 @@ import { SelectField } from "@/components/primitives/select-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import type { Property } from "@/constant/schemas/marketplace";
+import { walletSchema } from "@/constant/schemas/finance";
+import { type Property, propertyListResponseSchema } from "@/constant/schemas/marketplace";
+import { API_ROUTES } from "@/lib/api";
+import { useApiQuery } from "@/lib/query";
 import { REFERRAL_PLAN } from "@/lib/referrals";
 import { ArrowUpRight01Icon, Location01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -188,8 +191,6 @@ export function estimateInvestment(property: Property, units: number, walletBala
   };
 }
 
-const CITIES = [...new Set(PROPERTIES.map((property) => property.city))];
-const TENURES = [...new Set(PROPERTIES.map((property) => property.tenureMonths))].toSorted((a, b) => a - b);
 const FILTER_TRIGGER = "h-10! w-full rounded-full bg-card px-3.5 lg:w-auto lg:min-w-32";
 
 export function PropertyCard({
@@ -283,12 +284,21 @@ export function PropertyCard({
 }
 
 export default function MarketplacePage() {
+  const { data: catalogue } = useApiQuery({
+    path: API_ROUTES.properties,
+    schema: propertyListResponseSchema,
+    mock: PROPERTIES,
+  });
+  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("all");
   const [type, setType] = useState("all");
   const [tenure, setTenure] = useState("all");
   const [price, setPrice] = useState("all");
-  const properties = PROPERTIES.filter(
+  const list = catalogue ?? [];
+  const cities = [...new Set(list.map((property) => property.city))];
+  const tenures = [...new Set(list.map((property) => property.tenureMonths))].toSorted((a, b) => a - b);
+  const properties = list.filter(
     (property) =>
       `${property.name} ${fullLocation(property)} ${property.id} ${property.developer} ${PROPERTY_TYPE_LABELS[property.type]}`
         .toLowerCase()
@@ -320,7 +330,7 @@ export default function MarketplacePage() {
         <Link href="/dashboard/wallet" className="group/wallet shrink-0 sm:text-right">
           <span className="block text-xs text-muted-foreground">Available wallet</span>
           <span className="text-xl font-semibold tabular-nums group-hover/wallet:underline">
-            {naira(WALLET.balance)}
+            {naira(wallet?.balance ?? 0)}
           </span>
         </Link>
       </header>
@@ -341,7 +351,7 @@ export default function MarketplacePage() {
             onChange={setCity}
             triggerAria-label="City"
             triggerClassName={FILTER_TRIGGER}
-            items={[{ value: "all", label: "All cities" }, ...CITIES.map((value) => ({ value, label: value }))]}
+            items={[{ value: "all", label: "All cities" }, ...cities.map((value) => ({ value, label: value }))]}
           />
           <SelectField
             id="investment-type"
@@ -362,7 +372,7 @@ export default function MarketplacePage() {
             triggerClassName={FILTER_TRIGGER}
             items={[
               { value: "all", label: "Any tenure" },
-              ...TENURES.map((value) => ({ value: String(value), label: `${value} months` })),
+              ...tenures.map((value) => ({ value: String(value), label: `${value} months` })),
             ]}
           />
           <SelectField
