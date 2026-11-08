@@ -609,7 +609,7 @@ export default function BankingPage() {
   return (
     <>
       <Link
-        href="/platform"
+        href="/admin/platform"
         className="flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden className="size-4" />
@@ -626,7 +626,7 @@ export default function BankingPage() {
           variant="outline"
           className="h-10 rounded-full px-4"
           nativeButton={false}
-          render={<Link href="/withdrawals" />}
+          render={<Link href="/admin/withdrawals" />}
         >
           Treasury & withdrawals
           <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden />

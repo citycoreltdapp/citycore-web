@@ -36,7 +36,7 @@ export default function SignInPage() {
         // Everyone goes through KYC for now. The API will say who has already done it, and they should go to "/".
         onSubmit={form.handleSubmit(() => {
           form.reset();
-          router.push("/onboarding");
+          router.push("/dashboard/onboarding");
         })}
         onGoogle={() => toast.info("Google sign-in isn't connected to a backend yet.")}
         onDismissErrors={hasErrors ? () => form.clearErrors() : undefined}
@@ -46,7 +46,7 @@ export default function SignInPage() {
         footer={
           <>
             Don’t have an account?{" "}
-            <Link href="/signup" className="font-medium text-primary hover:underline">
+            <Link href="/dashboard/signup" className="font-medium text-primary hover:underline">
               Sign up
             </Link>
           </>
@@ -101,7 +101,7 @@ export default function SignInPage() {
               </div>
             )}
           />
-          <Link href="/forgot-password" className="font-medium text-primary hover:underline">
+          <Link href="/dashboard/forgot-password" className="font-medium text-primary hover:underline">
             Forgot Password
           </Link>
         </div>

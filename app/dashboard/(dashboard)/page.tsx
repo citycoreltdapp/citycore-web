@@ -152,7 +152,7 @@ const ZEBRA_ROWS = "border-none even:bg-muted/60 hover:bg-muted/60";
 function TransactionTables() {
   return (
     <div className="grid gap-5 xl:grid-cols-2">
-      <TableCard title="Recent transactions" href="/transactions">
+      <TableCard title="Recent transactions" href="/dashboard/transactions">
         <DataTable
           columns={RECENT_COLUMNS}
           data={HOME_DASHBOARD.recentTransactions}
@@ -162,7 +162,7 @@ function TransactionTables() {
         />
       </TableCard>
 
-      <TableCard title="Wallet accounts" href="/wallet">
+      <TableCard title="Wallet accounts" href="/dashboard/wallet">
         <DataTable
           columns={ACCOUNT_COLUMNS}
           data={WALLET_ACCOUNTS}
@@ -228,7 +228,7 @@ function WelcomeBanner() {
         </p>
         <Button
           nativeButton={false}
-          render={<Link href="/referrals" />}
+          render={<Link href="/dashboard/referrals" />}
           className="mt-4 h-9 rounded-sm bg-accent px-3 text-accent-foreground hover:bg-accent/85"
         >
           Join our affiliate program
@@ -285,7 +285,7 @@ export default function Client$DashboardPage() {
       <WelcomeBanner />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/wallet" />}>
+        <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/dashboard/wallet" />}>
           <HugeiconsIcon icon={AddCircleIcon} aria-hidden />
           Fund wallet
         </Button>

@@ -64,7 +64,7 @@ export default function Client$AskAIPage() {
               ))}
             </div>
             <Link
-              href="/ask-ai/history"
+              href="/dashboard/ask-ai/history"
               className="mt-2 flex items-center justify-between rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               View all history

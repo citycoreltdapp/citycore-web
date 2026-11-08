@@ -120,7 +120,7 @@ export function VerificationBanner() {
             {!needsAttention && <Steps />}
             <Button
               nativeButton={false}
-              render={<Link href="/onboarding" />}
+              render={<Link href="/dashboard/onboarding" />}
               className="relative h-10 shrink-0 rounded-full bg-accent px-5 text-sm text-accent-foreground hover:bg-accent/85"
             >
               <span className="sm:hidden">{needsAttention ? "Review" : "Verify"}</span>

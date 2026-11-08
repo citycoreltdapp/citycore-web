@@ -24,7 +24,7 @@ export default function InvestmentView() {
     return (
       <>
         <PageTitle title="Investment not found" description="This offering is unavailable in the local preview.">
-          <PageLink href="/investments">All investments</PageLink>
+          <PageLink href="/admin/investments">All investments</PageLink>
         </PageTitle>
       </>
     );
@@ -34,8 +34,8 @@ export default function InvestmentView() {
         title="Investment View"
         description={`${investment.name} · ${investment.location}, ${investment.city}`}
       >
-        <PageLink href="/investments">All investments</PageLink>
-        <PageLink href={`/investments/${id}/edit`}>Edit investment</PageLink>
+        <PageLink href="/admin/investments">All investments</PageLink>
+        <PageLink href={`/admin/investments/${id}/edit`}>Edit investment</PageLink>
       </PageTitle>
       <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <PropertyHero
@@ -64,7 +64,7 @@ export default function InvestmentView() {
               <dt className="text-muted-foreground">Version</dt>
               <dd>v{investment.version}</dd>
             </dl>
-            <PageLink href={`/investments/${id}/edit`}>Edit offering</PageLink>
+            <PageLink href={`/admin/investments/${id}/edit`}>Edit offering</PageLink>
             {investment.publicationStatus === "active" && (
               <Button
                 variant="outline"

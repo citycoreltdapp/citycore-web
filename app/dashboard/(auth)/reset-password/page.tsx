@@ -30,7 +30,7 @@ export default function ResetPasswordPage() {
         // ponytail: no backend yet, call the reset-password API here.
         onSubmit={form.handleSubmit(() => {
           form.reset();
-          router.push("/reset-password/success");
+          router.push("/dashboard/reset-password/success");
         })}
         submitLabel="Save New Password"
         isPending={form.formState.isSubmitting}
@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
         footer={
           <>
             Remember old password?{" "}
-            <Link href="/signin" className="font-medium text-primary hover:underline">
+            <Link href="/dashboard/signin" className="font-medium text-primary hover:underline">
               Sign in
             </Link>
           </>

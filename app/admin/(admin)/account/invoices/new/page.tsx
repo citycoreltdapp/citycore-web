@@ -94,7 +94,7 @@ export default function NewInvoicePage() {
     form.reset(values);
     if (intent === "draft") {
       toast.success("Invoice saved as a draft.");
-      router.push("/account/invoices");
+      router.push("/admin/account/invoices");
       return;
     }
     AppModal.open({
@@ -106,7 +106,7 @@ export default function NewInvoicePage() {
           invoices and track delivery.
         </p>
       ),
-      primaryButton: { children: "View invoices", onClick: () => router.push("/account/invoices") },
+      primaryButton: { children: "View invoices", onClick: () => router.push("/admin/account/invoices") },
       secondaryButton: { children: "Open invoice", onClick: () => setTimeout(() => openInvoice(invoice), 0) },
     });
   }
@@ -116,7 +116,7 @@ export default function NewInvoicePage() {
   return (
     <>
       <Link
-        href="/account/invoices"
+        href="/admin/account/invoices"
         className="flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden className="size-4" />
@@ -296,7 +296,7 @@ export default function NewInvoicePage() {
                 variant="ghost"
                 className="h-10 rounded-full px-4"
                 nativeButton={false}
-                render={<Link href="/account/invoices" />}
+                render={<Link href="/admin/account/invoices" />}
               >
                 Cancel
               </Button>

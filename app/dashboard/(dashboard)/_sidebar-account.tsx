@@ -15,11 +15,11 @@ const STATUS = {
   notStarted: {
     label: "Not verified",
     dot: "bg-destructive",
-    href: "/onboarding",
+    href: "/dashboard/onboarding",
     cta: "Verify your identity · 3 steps",
   },
   pending: { label: "Verification in review", dot: "bg-warning", href: null, cta: null },
-  actionRequired: { label: "Needs attention", dot: "bg-warning", href: "/onboarding", cta: "Review and resubmit" },
+  actionRequired: { label: "Needs attention", dot: "bg-warning", href: "/dashboard/onboarding", cta: "Review and resubmit" },
   verified: { label: "Verified investor", dot: "bg-success", href: null, cta: null },
 } as const satisfies Record<KycStatus, unknown>;
 
@@ -65,7 +65,7 @@ export function SidebarAccount() {
           size="icon"
           aria-label="Log out"
           nativeButton={false}
-          render={<Link href="/signin" />}
+          render={<Link href="/dashboard/signin" />}
           className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
         >
           <HugeiconsIcon icon={Logout01Icon} aria-hidden />

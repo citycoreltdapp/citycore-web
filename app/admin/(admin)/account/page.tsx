@@ -263,7 +263,7 @@ function InvoiceHealthCard() {
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Invoices</h2>
         <Link
-          href="/account/invoices"
+          href="/admin/account/invoices"
           className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           View all
@@ -380,7 +380,7 @@ export default function AccountOverview() {
           <Button
             className="h-10 rounded-full px-4"
             nativeButton={false}
-            render={<Link href="/account/invoices/new" />}
+            render={<Link href="/admin/account/invoices/new" />}
           >
             <HugeiconsIcon icon={Add01Icon} aria-hidden />
             New invoice

@@ -93,9 +93,9 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
           <DropdownMenuContent align="end" className="w-44">
             {accountMenuItems ?? (
               <>
-                <DropdownMenuItem render={<Link href="/settings" />}>Settings & Security</DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/dashboard/settings" />}>Settings & Security</DropdownMenuItem>
                 {/* ponytail: no sessions yet, so this only goes to sign-in. Sign out through the API here. */}
-                <DropdownMenuItem variant="destructive" render={<Link href="/signin" />}>
+                <DropdownMenuItem variant="destructive" render={<Link href="/dashboard/signin" />}>
                   Log out
                 </DropdownMenuItem>
               </>

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items = [
-  { href: "/settings", label: "Account profile" },
-  { href: "/settings/personal", label: "Personal & next of kin" },
-  { href: "/settings/security", label: "Security" },
-  { href: "/settings/notifications", label: "Notifications" },
-  { href: "/settings/limits", label: "Payment limits" },
+  { href: "/admin/settings", label: "Account profile" },
+  { href: "/admin/settings/personal", label: "Personal & next of kin" },
+  { href: "/admin/settings/security", label: "Security" },
+  { href: "/admin/settings/notifications", label: "Notifications" },
+  { href: "/admin/settings/limits", label: "Payment limits" },
 ];
 export function AdminSettingsNavigation() {
   const pathname = usePathname().replace(/^\/admin/, "");

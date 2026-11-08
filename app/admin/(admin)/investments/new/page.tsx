@@ -58,7 +58,7 @@ export function InvestmentEditor({ id }: { id?: string }) {
   if (id && !investment)
     return (
       <PageTitle title="Investment not found" description="Select an existing offering to edit.">
-        <PageLink href="/investments">All investments</PageLink>
+        <PageLink href="/admin/investments">All investments</PageLink>
       </PageTitle>
     );
   return <EditorForm key={id ?? "new"} investment={investment} />;
@@ -129,7 +129,7 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
           ? "Investment draft saved locally"
           : "Publication review saved locally; no live changes applied"
       );
-      router.push(`/investments/${next.id}`);
+      router.push(`/admin/investments/${next.id}`);
     }
   };
   function validateAllocation(data: AdminInvestmentForm) {

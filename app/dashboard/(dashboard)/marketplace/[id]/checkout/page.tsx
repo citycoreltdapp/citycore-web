@@ -135,7 +135,7 @@ function ReferralPlanCard({
             <h2 className="truncate text-sm font-semibold">{plan.name}</h2>
           </div>
         </div>
-        <Link href="/referrals" className="text-sm font-semibold underline-offset-4 hover:underline">
+        <Link href="/dashboard/referrals" className="text-sm font-semibold underline-offset-4 hover:underline">
           Your referral code
         </Link>
       </div>
@@ -379,7 +379,7 @@ function OrderSummary({
       <div className="flex flex-col gap-3 border-t border-border bg-muted/40 p-5">
         <div className="flex items-center justify-between gap-3 text-sm">
           <p className="font-semibold">City Core NGN wallet</p>
-          <Link href="/wallet" className="underline-offset-4 hover:underline">
+          <Link href="/dashboard/wallet" className="underline-offset-4 hover:underline">
             Fund wallet
           </Link>
         </div>
@@ -467,7 +467,7 @@ export default function InvestmentCheckoutPage() {
                 </div>
               ))}
             </dl>
-            <Button className="h-10 rounded-full px-5" render={<Link href="/marketplace" />} nativeButton={false}>
+            <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/marketplace" />} nativeButton={false}>
               Back to marketplace
             </Button>
           </Card>

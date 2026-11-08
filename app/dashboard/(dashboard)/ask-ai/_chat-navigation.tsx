@@ -9,9 +9,9 @@ import { usePathname } from "next/navigation";
 import { useChat } from "./_chat-store";
 
 const SECTIONS = [
-  { href: "/ask-ai", label: "Ask AI" },
-  { href: "/ask-ai/history", label: "History" },
-  { href: "/ask-ai/explore", label: "Investment Explorer" },
+  { href: "/dashboard/ask-ai", label: "Ask AI" },
+  { href: "/dashboard/ask-ai/history", label: "History" },
+  { href: "/dashboard/ask-ai/explore", label: "Investment Explorer" },
 ];
 
 export function ChatNavigation() {

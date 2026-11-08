@@ -422,13 +422,13 @@ export default function KycReview() {
   if (requested && !initial)
     return (
       <>
-        <BackLink href="/kyc">KYC compliance</BackLink>
+        <BackLink href="/admin/kyc">KYC compliance</BackLink>
         <Card className="items-center gap-3 rounded-2xl px-6 py-12 text-center ring-foreground/8">
           <h1 className="text-lg font-semibold">No KYC case for this investor</h1>
           <p className="max-w-sm text-sm text-muted-foreground">
             They may already be verified on file. Pick an applicant from the queue to continue.
           </p>
-          <Button className="mt-2 rounded-full" nativeButton={false} render={<Link href="/kyc/review" />}>
+          <Button className="mt-2 rounded-full" nativeButton={false} render={<Link href="/admin/kyc/review" />}>
             Open the queue
           </Button>
         </Card>
@@ -449,7 +449,7 @@ export default function KycReview() {
 
   return (
     <>
-      <BackLink href="/kyc">KYC compliance</BackLink>
+      <BackLink href="/admin/kyc">KYC compliance</BackLink>
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight">Review queue</h1>
@@ -459,7 +459,7 @@ export default function KycReview() {
           variant="outline"
           className="h-10 rounded-full px-4"
           nativeButton={false}
-          render={<Link href={`/users/management?investor=${encodeURIComponent(investor.id)}`} />}
+          render={<Link href={`/admin/users/management?investor=${encodeURIComponent(investor.id)}`} />}
         >
           Investor profile
         </Button>

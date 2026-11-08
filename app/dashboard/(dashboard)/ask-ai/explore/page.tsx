@@ -162,7 +162,7 @@ export default function Client$InvestWithAIPage() {
                   <Button
                     variant={index === 0 ? "default" : "secondary"}
                     className="mt-auto self-start rounded-full px-4 text-xs"
-                    render={<Link href={`/marketplace/${investment.id}`} />}
+                    render={<Link href={`/dashboard/marketplace/${investment.id}`} />}
                     nativeButton={false}
                   >
                     Review prospectus →

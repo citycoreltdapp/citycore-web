@@ -384,7 +384,7 @@ function EstimateCard({ property }: { property: Property }) {
         <Button
           className="h-11 w-full rounded-full"
           disabled={!open || !isValid || !canAfford}
-          onClick={() => router.push(`/marketplace/${property.id}/checkout?units=${units}`)}
+          onClick={() => router.push(`/dashboard/marketplace/${property.id}/checkout?units=${units}`)}
         >
           Continue with {isValid ? units : 0} {units === 1 ? "unit" : "units"}
           <HugeiconsIcon icon={ArrowRight02Icon} aria-hidden />
@@ -396,7 +396,7 @@ function EstimateCard({ property }: { property: Property }) {
           <SummaryRow label="After purchase" value={naira(estimate.balanceAfter)} />
         </dl>
         <div className="flex items-center justify-between gap-3 text-sm">
-          <Link href="/wallet" className="font-semibold underline-offset-4 hover:underline">
+          <Link href="/dashboard/wallet" className="font-semibold underline-offset-4 hover:underline">
             Fund wallet
           </Link>
           <button
@@ -451,7 +451,7 @@ function ReferralPlanCard({
             <h2 className="truncate text-sm font-semibold">{plan.name}</h2>
           </div>
         </div>
-        <Link href="/referrals" className="text-sm font-semibold underline-offset-4 hover:underline">
+        <Link href="/dashboard/referrals" className="text-sm font-semibold underline-offset-4 hover:underline">
           Your referral code
         </Link>
       </div>
@@ -486,7 +486,7 @@ export default function InvestmentPage() {
   return (
     <>
       <Link
-        href="/marketplace"
+        href="/dashboard/marketplace"
         className="flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden className="size-4" />

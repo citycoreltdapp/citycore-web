@@ -50,7 +50,7 @@ export default function InvestmentManagement() {
         title="Investment Management"
         description="Manage offerings, review availability and prepare publication changes."
       >
-        <PageLink href="/investments/new">Add new investment</PageLink>
+        <PageLink href="/admin/investments/new">Add new investment</PageLink>
       </PageTitle>
       <div className="flex flex-col gap-3 lg:flex-row">
         <SearchField
@@ -130,7 +130,7 @@ export default function InvestmentManagement() {
               key={investment.id}
               property={toProperty(investment)}
               index={index}
-              href={`/investments/${investment.id}`}
+              href={`/admin/investments/${investment.id}`}
               statusLabel={investment.publicationStatus.replace("-", " ")}
             />
           ))}

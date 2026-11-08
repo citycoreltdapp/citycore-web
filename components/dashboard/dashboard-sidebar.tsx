@@ -43,10 +43,10 @@ function useSavedSidebarState() {
 function DashboardNav({ groups, basePath }: { groups: NavGroup[]; basePath: string }) {
   const { isMobile, setOpenMobile } = useSidebar();
   const rawPathname = usePathname();
-  // The proxy serves each tenant from its own folder, and the server sees that path while the browser sees "/".
   const pathname = (rawPathname.startsWith(basePath) ? rawPathname.slice(basePath.length) : rawPathname) || "/";
 
   const isActive = (url?: string) => !!url && (url === "/" ? pathname === "/" : pathname.startsWith(url));
+  const hrefFor = (url: string) => (url === "/" ? basePath : `${basePath}${url}`);
 
   return groups.map((group) => (
     <SidebarGroup key={group.label} className="px-4 group-data-[collapsible=icon]:px-0">
@@ -62,7 +62,7 @@ function DashboardNav({ groups, basePath }: { groups: NavGroup[]; basePath: stri
               className={NAV_BUTTON_STYLES}
               // ponytail: a nav item with no url is a page that isn't built yet, so it says so instead of a 404.
               onClick={item.url ? undefined : () => toast.info(`${item.title} isn't built yet.`)}
-              render={item.url ? <Link href={item.url} onClick={() => isMobile && setOpenMobile(false)} /> : undefined}
+              render={item.url ? <Link href={hrefFor(item.url)} onClick={() => isMobile && setOpenMobile(false)} /> : undefined}
             >
               <HugeiconsIcon icon={item.icon} aria-hidden />
               <span className="group-data-[collapsible=icon]:sr-only">{item.title}</span>
@@ -91,7 +91,7 @@ export function DashboardSidebar({
   basePath = "/dashboard",
   brand = "City Core",
   footer,
-  logOutButton = <Link href="/signin" />,
+  logOutButton = <Link href="/dashboard/signin" />,
 }: DashboardSidebarProps) {
   const [isOpen, setIsOpen] = useSavedSidebarState();
 
@@ -100,7 +100,7 @@ export function DashboardSidebar({
       <Sidebar collapsible="icon">
         <SidebarHeader className="px-6 pt-6 pb-0 group-data-[collapsible=icon]:px-0">
           <Link
-            href="/"
+            href={basePath}
             className="flex items-center gap-2.5 border-b border-dashed pb-5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-none"
           >
             <Image src="/assets/images/logo.png" alt="" width={34} height={40} className="size-8 object-contain" />

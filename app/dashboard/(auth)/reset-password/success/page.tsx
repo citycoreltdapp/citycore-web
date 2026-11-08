@@ -6,7 +6,7 @@ export default function ResetPasswordSuccessPage() {
       <AuthSuccess
         title="Your Password Successfully Changed"
         subtitle="Sign in to your account with your new password"
-        actionHref="/signin"
+        actionHref="/dashboard/signin"
         actionLabel="Sign in"
       />
     </AuthShell>

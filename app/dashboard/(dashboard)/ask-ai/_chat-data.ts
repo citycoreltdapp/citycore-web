@@ -62,8 +62,8 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
         "Market movements do not guarantee returns for an individual property. Review the offering’s prospectus and exit terms separately.",
       ],
       links: [
-        { label: "Open Market Insights", href: "/market-insights" },
-        { label: "Explore offerings", href: "/marketplace" },
+        { label: "Open Market Insights", href: "/dashboard/market-insights" },
+        { label: "Explore offerings", href: "/dashboard/marketplace" },
       ],
       source: "CityCore · illustrative market outlook",
     };
@@ -95,8 +95,8 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
           `Combined sample value: ${naira(principal + yieldValue)}. These are illustrative records, not live account balances.`
         ),
       links: [
-        { label: "Open my investments", href: "/investments" },
-        { label: "Explore offerings", href: "/marketplace" },
+        { label: "Open my investments", href: "/dashboard/investments" },
+        { label: "Explore offerings", href: "/dashboard/marketplace" },
       ],
       source: "CityCore · sample portfolio records",
     };
@@ -115,8 +115,8 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
           "Target returns are projections, not guarantees. Review the prospectus, allocation terms and risk disclosures; capital is at risk."
         ),
       links: [
-        { label: "Compare in marketplace", href: "/marketplace" },
-        { label: "Investment Explorer", href: "/ask-ai/explore" },
+        { label: "Compare in marketplace", href: "/dashboard/marketplace" },
+        { label: "Investment Explorer", href: "/dashboard/ask-ai/explore" },
       ],
       source: "CityCore · illustrative marketplace offerings",
     };
@@ -130,7 +130,7 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
         "Review withdrawal details before proceeding with a live service.",
         "Balances and transactions are sample data. This preview cannot move money or complete a purchase.",
       ],
-      links: [{ label: "Open wallet", href: "/wallet" }],
+      links: [{ label: "Open wallet", href: "/dashboard/wallet" }],
       source: "CityCore · sample wallet data",
     };
   if (topic === "security")
@@ -143,7 +143,7 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
         "Choose an authenticator app, email or phone in the setup preview.",
         "Two-factor authentication remains inactive until real verification services are connected.",
       ],
-      links: [{ label: "Review security", href: "/settings/security" }],
+      links: [{ label: "Review security", href: "/dashboard/settings/security" }],
       source: "CityCore · security settings preview",
     };
   return {
@@ -154,7 +154,7 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
       "This is a workspace preview with prepared responses based on sample account data. A live AI service has not been connected.",
       "Try one of the suggested questions, or use the Help Center for product guides.",
     ],
-    links: [{ label: "Browse Help Center", href: "/support" }],
+    links: [{ label: "Browse Help Center", href: "/dashboard/support" }],
     source: "CityCore · workspace guide",
   };
 }

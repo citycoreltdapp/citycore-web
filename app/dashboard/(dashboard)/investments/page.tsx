@@ -69,7 +69,7 @@ function HoldingCard({ item, index }: { item: Holding; index: number }) {
         <div className="space-y-1">
           <h3 className="text-base font-semibold">
             <Link
-              href={`/marketplace/${property.id}`}
+              href={`/dashboard/marketplace/${property.id}`}
               className="outline-none after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-ring"
             >
               {property.name}
@@ -120,7 +120,7 @@ const COLUMNS: ColumnDef<Holding>[] = [
     cell: ({ row }) => (
       <Link
         className="font-semibold text-foreground underline-offset-4 hover:underline"
-        href={`/marketplace/${row.original.property.id}`}
+        href={`/dashboard/marketplace/${row.original.property.id}`}
       >
         {row.original.property.name}
       </Link>
@@ -162,7 +162,7 @@ export default function InvestmentsPage() {
             risk.
           </p>
         </div>
-        <Button className="h-10 rounded-full px-5" render={<Link href="/ask-ai/explore" />} nativeButton={false}>
+        <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/ask-ai/explore" />} nativeButton={false}>
           Invest with AI
         </Button>
       </header>
@@ -241,7 +241,7 @@ export default function InvestmentsPage() {
           <Button
             variant="secondary"
             className="rounded-full px-5"
-            render={<Link href="/marketplace" />}
+            render={<Link href="/dashboard/marketplace" />}
             nativeButton={false}
           >
             Explore marketplace

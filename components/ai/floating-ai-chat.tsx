@@ -51,7 +51,7 @@ function FloatingPanel({ onClose }: { onClose: () => void }) {
           variant="ghost"
           size="icon-sm"
           aria-label="Continue in full chat"
-          render={<Link href="/ask-ai" onClick={onClose} />}
+          render={<Link href="/dashboard/ask-ai" onClick={onClose} />}
           nativeButton={false}
         >
           <HugeiconsIcon icon={ArrowExpand01Icon} />

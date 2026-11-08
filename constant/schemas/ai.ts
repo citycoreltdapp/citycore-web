@@ -5,13 +5,13 @@ import { paginatedSchema, paginationQuerySchema, resourceIdSchema, timestampSche
 export const chatLinkSchema = z.object({
   label: z.string(),
   href: z.enum([
-    "/investments",
-    "/marketplace",
-    "/wallet",
-    "/settings/security",
-    "/support",
-    "/ask-ai/explore",
-    "/market-insights",
+    "/dashboard/investments",
+    "/dashboard/marketplace",
+    "/dashboard/wallet",
+    "/dashboard/settings/security",
+    "/dashboard/support",
+    "/dashboard/ask-ai/explore",
+    "/dashboard/market-insights",
   ]),
 });
 export const chatAnswerSchema = z.object({

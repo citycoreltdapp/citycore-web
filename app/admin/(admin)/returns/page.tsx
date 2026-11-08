@@ -187,7 +187,7 @@ export default function ReturnsPage() {
             variant="outline"
             className="h-10 rounded-full px-4"
             nativeButton={false}
-            render={<Link href="/withdrawals" />}
+            render={<Link href="/admin/withdrawals" />}
           >
             Treasury & withdrawals
           </Button>
@@ -290,7 +290,7 @@ export default function ReturnsPage() {
             })}
           </ol>
           <Link
-            href="/withdrawals"
+            href="/admin/withdrawals"
             className="mt-auto flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             Treasury ledger

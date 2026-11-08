@@ -204,7 +204,7 @@ function KycQueueCard() {
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">KYC queue</h2>
         <Link
-          href="/kyc"
+          href="/admin/kyc"
           className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Open KYC
@@ -242,7 +242,7 @@ function KycQueueCard() {
         {queue.slice(0, 3).map((investor) => (
           <li key={investor.id}>
             <Link
-              href={`/kyc/review?investor=${encodeURIComponent(investor.id)}`}
+              href={`/admin/kyc/review?investor=${encodeURIComponent(investor.id)}`}
               className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Initials name={investorName(investor)} size="sm" />
@@ -265,7 +265,7 @@ function StaffCard() {
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Admin team</h2>
         <Link
-          href="/users/access"
+          href="/admin/users/access"
           className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Manage access
@@ -339,12 +339,12 @@ export default function UsersOverview() {
             variant="outline"
             className="h-10 rounded-full px-4"
             nativeButton={false}
-            render={<Link href="/users/access" />}
+            render={<Link href="/admin/users/access" />}
           >
             <HugeiconsIcon icon={SecurityCheckIcon} aria-hidden />
             Staff & access
           </Button>
-          <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/users/management" />}>
+          <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/admin/users/management" />}>
             Manage investors
           </Button>
         </div>
@@ -419,9 +419,9 @@ export default function UsersOverview() {
             { label: "Quick look", onClick: setSelected },
             {
               label: "Open profile",
-              onClick: (i) => router.push(`/users/management?investor=${encodeURIComponent(i.id)}`),
+              onClick: (i) => router.push(`/admin/users/management?investor=${encodeURIComponent(i.id)}`),
             },
-            { label: "View KYC case", onClick: (i) => router.push(`/kyc/review?investor=${encodeURIComponent(i.id)}`) },
+            { label: "View KYC case", onClick: (i) => router.push(`/admin/kyc/review?investor=${encodeURIComponent(i.id)}`) },
           ]}
           emptyMessage="No investors match these filters."
         />
@@ -558,14 +558,14 @@ export function InvestorSheet({ investor, onClose }: { investor: AdminInvestor |
                 variant="outline"
                 className="flex-1 rounded-full"
                 nativeButton={false}
-                render={<Link href={`/kyc/review?investor=${encodeURIComponent(investor.id)}`} />}
+                render={<Link href={`/admin/kyc/review?investor=${encodeURIComponent(investor.id)}`} />}
               >
                 KYC case
               </Button>
               <Button
                 className="flex-1 rounded-full"
                 nativeButton={false}
-                render={<Link href={`/users/management?investor=${encodeURIComponent(investor.id)}`} />}
+                render={<Link href={`/admin/users/management?investor=${encodeURIComponent(investor.id)}`} />}
               >
                 Open profile
               </Button>

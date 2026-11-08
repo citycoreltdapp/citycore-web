@@ -258,7 +258,7 @@ export default function TreasuryPage() {
             variant="outline"
             className="h-10 rounded-full px-4"
             nativeButton={false}
-            render={<Link href="/returns" />}
+            render={<Link href="/admin/returns" />}
           >
             Returns & maturity
           </Button>
@@ -266,7 +266,7 @@ export default function TreasuryPage() {
             variant="outline"
             className="h-10 rounded-full px-4"
             nativeButton={false}
-            render={<Link href="/platform/banking" />}
+            render={<Link href="/admin/platform/banking" />}
           >
             Banking integration
           </Button>

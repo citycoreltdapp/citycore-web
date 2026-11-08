@@ -557,7 +557,7 @@ function AlertsCard({
   const open = (n: State["notifications"][number]) => {
     save({ ...value, notifications: value.notifications.map((i) => (i.id === n.id ? { ...i, isRead: true } : i)) });
     if (n.target === "ticket") onOpenTicket(n.reference);
-    else if (n.target === "verification") router.push(`/kyc/review?investor=${encodeURIComponent(n.reference)}`);
+    else if (n.target === "verification") router.push(`/admin/kyc/review?investor=${encodeURIComponent(n.reference)}`);
     else
       AppModal.open({
         title: n.title,
@@ -657,7 +657,7 @@ function SupportWorkspace({ value, save }: { value: State; save: (v: State) => b
             variant="outline"
             className="h-10 rounded-full px-4"
             nativeButton={false}
-            render={<Link href="/settings/notifications" />}
+            render={<Link href="/admin/settings/notifications" />}
           >
             Alert settings
           </Button>

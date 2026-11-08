@@ -19,7 +19,7 @@ function AutoRedirect({ href, delayMs = 2500 }: { href: string; delayMs?: number
   return <Spinner aria-label="Redirecting" className="size-6 text-primary/60" />;
 }
 
-const NEXT_STEP = "/onboarding";
+const NEXT_STEP = "/dashboard/onboarding";
 
 export default function SignUpVerifiedPage() {
   return (

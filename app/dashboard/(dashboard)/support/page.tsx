@@ -161,7 +161,7 @@ function productArticle(product: (typeof PRODUCTS)[number]): HelpArticle {
         "Use transaction references when checking an entry or preparing a support request.",
         "Transaction records and reports are sample data in this preview.",
       ],
-      href: "/transactions",
+      href: "/dashboard/transactions",
       updatedAt: "2026-10-22",
     };
   if (product.id === "intelligence")
@@ -175,7 +175,7 @@ function productArticle(product: (typeof PRODUCTS)[number]): HelpArticle {
         "Review the sample matches and their underlying offering documents independently.",
         "The preview uses local matching rules; no live AI service is connected.",
       ],
-      href: "/ask-ai",
+      href: "/dashboard/ask-ai",
       updatedAt: "2026-10-22",
     };
   return (
@@ -291,7 +291,7 @@ export default function Client$SupportPage() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold tracking-tight">Help Center</h1>
-        <Button className="h-10 rounded-full px-5" render={<Link href="/onboarding" />} nativeButton={false}>
+        <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/onboarding" />} nativeButton={false}>
           Open an Account
         </Button>
       </div>

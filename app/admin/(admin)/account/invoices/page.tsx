@@ -102,7 +102,7 @@ export default function InvoicesPage() {
   return (
     <>
       <Link
-        href="/account"
+        href="/admin/account"
         className="flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
       >
         <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden className="size-4" />
@@ -114,7 +114,7 @@ export default function InvoicesPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Invoices</h1>
           <p className="text-sm text-muted-foreground">Billing activity and saved drafts · illustrative data</p>
         </div>
-        <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/account/invoices/new" />}>
+        <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/admin/account/invoices/new" />}>
           <HugeiconsIcon icon={Add01Icon} aria-hidden />
           New invoice
         </Button>

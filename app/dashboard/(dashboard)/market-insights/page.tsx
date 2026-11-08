@@ -103,7 +103,7 @@ export default function MarketInsightsPage() {
   const ask = (prompt: string) => {
     chat.newChat();
     chat.send(prompt);
-    router.push("/ask-ai");
+    router.push("/dashboard/ask-ai");
   };
   const series = [
     { key: "lagos" as const, label: "Lagos · observed signal", color: "var(--chart-1)" },
@@ -224,7 +224,7 @@ export default function MarketInsightsPage() {
 
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">The market, explained</h2>
-        <Link href="/marketplace" className="text-sm font-semibold underline-offset-4 hover:underline">
+        <Link href="/dashboard/marketplace" className="text-sm font-semibold underline-offset-4 hover:underline">
           View marketplace
         </Link>
       </div>

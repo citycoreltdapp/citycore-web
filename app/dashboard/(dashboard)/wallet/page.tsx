@@ -331,7 +331,7 @@ function RecentTransactionsCard() {
       <CardHeader className="flex flex-wrap items-center justify-between gap-4 border-b border-border px-5 pb-4">
         <CardTitle className="text-base font-semibold">Recent transactions</CardTitle>
         <Link
-          href="/transactions"
+          href="/dashboard/transactions"
           className="flex items-center gap-1.5 text-sm font-medium text-chart-4 underline-offset-4 hover:underline"
         >
           View all {TRANSACTIONS.length} transactions
@@ -362,7 +362,7 @@ export default function Client$WalletPage() {
             variant="outline"
             nativeButton={false}
             className="h-10 rounded-full px-4"
-            render={<Link href="/withdrawals" />}
+            render={<Link href="/dashboard/withdrawals" />}
           >
             Withdraw
           </Button>

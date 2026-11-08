@@ -8,8 +8,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const SECTIONS = [
-  { href: "/settings", label: "Profile" },
-  { href: "/settings/security", label: "Security" },
+  { href: "/dashboard/settings", label: "Profile" },
+  { href: "/dashboard/settings/security", label: "Security" },
 ];
 
 export function SettingsNavigation() {

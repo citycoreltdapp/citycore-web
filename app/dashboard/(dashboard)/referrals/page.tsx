@@ -26,7 +26,7 @@ import { toast } from "sonner";
 
 import { naira } from "../marketplace/page";
 
-const invitePath = (code: string) => `/signup?ref=${code}`;
+const invitePath = (code: string) => `/dashboard/signup?ref=${code}`;
 
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null);
@@ -553,7 +553,7 @@ export default function Client$ReferralsPage() {
           variant="outline"
           nativeButton={false}
           className="h-10 rounded-full px-5"
-          render={<Link href="/marketplace" />}
+          render={<Link href="/dashboard/marketplace" />}
         >
           See qualifying packages
         </Button>

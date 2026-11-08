@@ -89,8 +89,8 @@ export default function Client$TransactionsPage() {
             <HugeiconsIcon icon={ArrowDown01Icon} aria-hidden />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem render={<Link href="/transactions/reports" />}>Yearly Reports</DropdownMenuItem>
-            <DropdownMenuItem render={<Link href="/wallet" />}>Wallet Overview</DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/dashboard/transactions/reports" />}>Yearly Reports</DropdownMenuItem>
+            <DropdownMenuItem render={<Link href="/dashboard/wallet" />}>Wallet Overview</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>

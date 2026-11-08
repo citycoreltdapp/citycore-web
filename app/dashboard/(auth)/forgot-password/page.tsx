@@ -21,13 +21,13 @@ export default function ForgotPasswordPage() {
   });
 
   return (
-    <AuthShell imageSide="right" banner={<AuthQuoteBanner />} backHref="/signin">
+    <AuthShell imageSide="right" banner={<AuthQuoteBanner />} backHref="/dashboard/signin">
       <AuthForm
         icon={<HugeiconsIcon icon={SquareLock02Icon} />}
         title="Forgot Password?"
         subtitle="Enter your email to reset your password"
         // ponytail: no backend yet, call the forgot-password API here.
-        onSubmit={form.handleSubmit(() => router.push("/forgot-password/verify"))}
+        onSubmit={form.handleSubmit(() => router.push("/dashboard/forgot-password/verify"))}
         submitLabel="Submit"
         isPending={form.formState.isSubmitting}
         isSubmitDisabled={!form.formState.isValid}

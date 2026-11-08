@@ -71,7 +71,7 @@ function PropertyAnalytics() {
               header: "Property",
               cell: ({ row }) => (
                 <Link
-                  href={`/investments/${row.original.id}`}
+                  href={`/admin/investments/${row.original.id}`}
                   className="group flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Image
@@ -168,7 +168,7 @@ function PropertyAnalytics() {
         <Button
           nativeButton={false}
           variant="outline"
-          render={<Link href="/investments" />}
+          render={<Link href="/admin/investments" />}
           className="h-10 rounded-full"
         >
           Manage offerings
@@ -235,7 +235,7 @@ function TaxAnalytics() {
           <Button
             nativeButton={false}
             variant="outline"
-            render={<Link href="/returns" />}
+            render={<Link href="/admin/returns" />}
             className="h-10 rounded-full px-4"
           >
             View distribution schedule

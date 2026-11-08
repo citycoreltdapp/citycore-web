@@ -56,7 +56,7 @@ function SignUpForm() {
         setReferredBy(referrer);
         if (referrer) toast.success(`Referred by ${referrer.name}`);
         form.reset();
-        router.push("/signup/verify");
+        router.push("/dashboard/signup/verify");
       })}
       onGoogle={() => toast.info("Google sign-up isn't connected to a backend yet.")}
       onDismissErrors={hasErrors ? () => form.clearErrors() : undefined}
@@ -66,7 +66,7 @@ function SignUpForm() {
       footer={
         <>
           Already have an account?{" "}
-          <Link href="/signin" className="font-medium text-primary hover:underline">
+          <Link href="/dashboard/signin" className="font-medium text-primary hover:underline">
             Sign in
           </Link>
         </>

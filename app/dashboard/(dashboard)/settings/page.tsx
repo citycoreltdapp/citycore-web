@@ -275,8 +275,8 @@ export function ProfileCard() {
         />
         {(
           [
-            { name: "privacy", label: "I acknowledge the privacy policy", href: "/privacy" },
-            { name: "terms", label: "I acknowledge the terms & conditions", href: "/terms" },
+            { name: "privacy", label: "I acknowledge the privacy policy", href: "/dashboard/privacy" },
+            { name: "terms", label: "I acknowledge the terms & conditions", href: "/dashboard/terms" },
           ] as const
         ).map((item) => (
           <Controller
@@ -532,7 +532,7 @@ export default function Client$SettingsPage() {
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SettingsNavigation />
-        <Button className="h-10 rounded-full px-5" render={<Link href="/onboarding" />} nativeButton={false}>
+        <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/onboarding" />} nativeButton={false}>
           Verify identity
         </Button>
       </div>

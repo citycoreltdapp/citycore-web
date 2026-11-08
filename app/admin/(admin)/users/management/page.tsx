@@ -330,13 +330,13 @@ export default function UserManagement() {
   if (requested && !INVESTORS.some((i) => i.id === requested))
     return (
       <>
-        <BackLink href="/users">Users & Admins</BackLink>
+        <BackLink href="/admin/users">Users & Admins</BackLink>
         <Card className="items-center gap-3 rounded-2xl px-6 py-12 text-center ring-foreground/8">
           <h1 className="text-lg font-semibold">Investor not found</h1>
           <p className="max-w-sm text-sm text-muted-foreground">
             No account matches this reference. Pick an investor from the directory to continue.
           </p>
-          <Button className="mt-2 rounded-full" nativeButton={false} render={<Link href="/users/management" />}>
+          <Button className="mt-2 rounded-full" nativeButton={false} render={<Link href="/admin/users/management" />}>
             Open directory
           </Button>
         </Card>
@@ -345,7 +345,7 @@ export default function UserManagement() {
 
   return (
     <>
-      <BackLink href="/users">Users & Admins</BackLink>
+      <BackLink href="/admin/users">Users & Admins</BackLink>
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight">Investor accounts</h1>
@@ -355,7 +355,7 @@ export default function UserManagement() {
           variant="outline"
           className="h-10 rounded-full px-4"
           nativeButton={false}
-          render={<Link href="/users/access" />}
+          render={<Link href="/admin/users/access" />}
         >
           Staff & access
         </Button>
@@ -433,7 +433,7 @@ export default function UserManagement() {
                   variant="outline"
                   className="h-9 flex-1 rounded-full px-3.5 sm:flex-none"
                   nativeButton={false}
-                  render={<Link href={`/kyc/review?investor=${encodeURIComponent(selected.id)}`} />}
+                  render={<Link href={`/admin/kyc/review?investor=${encodeURIComponent(selected.id)}`} />}
                 >
                   KYC case
                 </Button>

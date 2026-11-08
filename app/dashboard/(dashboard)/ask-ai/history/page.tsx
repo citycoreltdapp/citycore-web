@@ -37,7 +37,7 @@ export default function Client$AIHistoryPage() {
     );
   const newChat = () => {
     chat.newChat();
-    router.push("/ask-ai");
+    router.push("/dashboard/ask-ai");
   };
   return (
     <>
@@ -113,7 +113,7 @@ export default function Client$AIHistoryPage() {
                     <HugeiconsIcon icon={AiChat02Icon} className="size-5" />
                   </span>
                   <Link
-                    href="/ask-ai"
+                    href="/dashboard/ask-ai"
                     onClick={() => chat.openChat(conversation.id)}
                     className="min-w-0 flex-1 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
@@ -183,7 +183,7 @@ export default function Client$AIHistoryPage() {
             variant="link"
             size="sm"
             className="h-auto p-0 text-xs"
-            render={<Link href="/ask-ai/explore" />}
+            render={<Link href="/dashboard/ask-ai/explore" />}
             nativeButton={false}
           >
             Open Investment Explorer →

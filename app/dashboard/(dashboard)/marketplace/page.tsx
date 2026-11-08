@@ -317,7 +317,7 @@ export default function MarketplacePage() {
             is at risk, so review the prospectus before investing.
           </p>
         </div>
-        <Link href="/wallet" className="group/wallet shrink-0 sm:text-right">
+        <Link href="/dashboard/wallet" className="group/wallet shrink-0 sm:text-right">
           <span className="block text-xs text-muted-foreground">Available wallet</span>
           <span className="text-xl font-semibold tabular-nums group-hover/wallet:underline">
             {naira(WALLET.balance)}

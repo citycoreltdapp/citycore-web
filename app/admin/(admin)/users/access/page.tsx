@@ -385,7 +385,7 @@ export default function StaffAccess() {
 
   return (
     <>
-      <BackLink href="/users">Users & Admins</BackLink>
+      <BackLink href="/admin/users">Users & Admins</BackLink>
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
         <div className="space-y-1.5">
           <h1 className="text-2xl font-semibold tracking-tight">Staff & access</h1>

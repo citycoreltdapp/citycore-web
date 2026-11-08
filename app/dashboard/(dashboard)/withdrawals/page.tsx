@@ -81,7 +81,7 @@ function WithdrawalDetailsCard() {
       <div className="flex flex-col gap-3 border-t border-border p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Send to</h2>
-          <Link href="/wallet" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
+          <Link href="/dashboard/wallet" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
             {payout ? "Change" : "Add payout account"}
           </Link>
         </div>

@@ -562,7 +562,7 @@ function OnboardingSuccess() {
           </li>
         ))}
       </ul>
-      <Link href="/" className={cn(buttonVariants(), "mt-8 h-13 w-full rounded-xl text-base")}>
+      <Link href="/dashboard" className={cn(buttonVariants(), "mt-8 h-13 w-full rounded-xl text-base")}>
         Go to dashboard
       </Link>
     </div>
@@ -645,7 +645,7 @@ function TopBar({ current, onBack }: { current: number; onBack: () => void }) {
           <HugeiconsIcon icon={ArrowLeft02Icon} aria-hidden className="size-5" />
         </button>
         <p className="flex-1 text-center text-base font-semibold lg:text-left">Verification</p>
-        <Link href="/" className="text-sm font-semibold underline-offset-4 transition-colors hover:underline">
+        <Link href="/dashboard" className="text-sm font-semibold underline-offset-4 transition-colors hover:underline">
           Finish later
         </Link>
       </div>
@@ -715,7 +715,7 @@ export default function OnboardingPage() {
       <main className="flex min-w-0 flex-col">
         <TopBar
           current={currentStep}
-          onBack={() => (currentStep === 0 ? router.push("/") : goToStep(currentStep - 1))}
+          onBack={() => (currentStep === 0 ? router.push("/dashboard") : goToStep(currentStep - 1))}
         />
         <FormProvider {...form}>
           <form method="post" noValidate onSubmit={handleSubmit} className={cn("flex flex-1 flex-col", FIELD_STYLES)}>

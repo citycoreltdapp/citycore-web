@@ -46,7 +46,7 @@ function NotificationForm({ value, save }: { value: Values; save: (v: Values) =>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold">Notification</h2>
         <div className="flex flex-wrap gap-2">
-          <PageLink href="/settings/limits">Payment limits</PageLink>
+          <PageLink href="/admin/settings/limits">Payment limits</PageLink>
           <Button type="button" variant="outline" onClick={() => form.reset(value)}>
             Cancel changes
           </Button>

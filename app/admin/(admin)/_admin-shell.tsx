@@ -49,7 +49,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             notifications={ADMIN_NOTIFICATIONS}
             accountMenuItems={
               <>
-                <DropdownMenuItem render={<Link href="/settings" />}>Settings</DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/admin/settings" />}>Settings</DropdownMenuItem>
                 <DropdownMenuItem variant="destructive" onClick={logOut}>
                   Log out
                 </DropdownMenuItem>

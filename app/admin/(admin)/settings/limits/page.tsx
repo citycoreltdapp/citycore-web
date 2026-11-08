@@ -46,7 +46,7 @@ function LimitsForm({ value, save }: { value: Values; save: (v: Values) => boole
     <>
       <div className="flex flex-wrap justify-between gap-3">
         <h2 className="text-xl font-semibold">Payment Limits</h2>
-        <PageLink href="/settings/security">Profile Security</PageLink>
+        <PageLink href="/admin/settings/security">Profile Security</PageLink>
       </div>
       <form
         className="space-y-5"

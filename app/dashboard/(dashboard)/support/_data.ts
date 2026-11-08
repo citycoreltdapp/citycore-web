@@ -14,7 +14,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Prepare the identity and address documents requested during verification.",
       "Review your details before submitting. Account creation and verification are not connected in this preview.",
     ],
-    href: "/onboarding",
+    href: "/dashboard/onboarding",
     updatedAt: "2026-10-22",
   },
   {
@@ -28,7 +28,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Review the authentication methods in Settings & Security.",
       "Never share passwords, one-time codes or recovery codes with someone claiming to be support.",
     ],
-    href: "/settings/security",
+    href: "/dashboard/settings/security",
     updatedAt: "2026-10-21",
   },
   {
@@ -109,7 +109,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Read the prospectus, risk disclosures and investor agreement. Target returns are projections, not guarantees; capital is at risk.",
       "Use the investment calculator to explore an illustrative allocation. Purchases are not processed in this preview.",
     ],
-    href: "/marketplace",
+    href: "/dashboard/marketplace",
     updatedAt: "2026-10-15",
   },
   {
@@ -175,7 +175,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Check the account details and reference before starting a transfer.",
       "Deposits and balances are illustrative in this preview; no real funds are accepted.",
     ],
-    href: "/wallet",
+    href: "/dashboard/wallet",
     updatedAt: "2026-10-10",
   },
   {
@@ -188,7 +188,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Confirm the destination and amount before using a live withdrawal service.",
       "Withdrawal requests and their status are sample data in this preview.",
     ],
-    href: "/withdrawals",
+    href: "/dashboard/withdrawals",
     updatedAt: "2026-10-09",
   },
   {
@@ -201,7 +201,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Use only documents requested by the verified account provider.",
       "Identity checks and document submission are not connected in this preview.",
     ],
-    href: "/onboarding",
+    href: "/dashboard/onboarding",
     updatedAt: "2026-10-08",
   },
   {
@@ -214,7 +214,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       "Switch between grid and list views to review units and maturity dates.",
       "Portfolio values and accrued yields are illustrative and do not represent a live account.",
     ],
-    href: "/investments",
+    href: "/dashboard/investments",
     updatedAt: "2026-10-07",
   },
 ];

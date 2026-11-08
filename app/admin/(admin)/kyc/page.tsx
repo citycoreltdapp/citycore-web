@@ -151,7 +151,7 @@ function NextUpCard() {
           <p className="text-xs text-muted-foreground">Oldest applications first</p>
         </div>
         <Link
-          href="/kyc/review"
+          href="/admin/kyc/review"
           className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Queue
@@ -215,7 +215,7 @@ export default function KycOverview() {
           <h1 className="text-2xl font-semibold tracking-tight">KYC compliance</h1>
           <p className="text-sm text-muted-foreground">Restricted workspace · evidence is masked and illustrative</p>
         </div>
-        <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/kyc/review" />}>
+        <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/admin/kyc/review" />}>
           Open review queue
         </Button>
       </header>
@@ -277,7 +277,7 @@ export default function KycOverview() {
             { label: "Open", onClick: open },
             {
               label: "Investor profile",
-              onClick: (i) => router.push(`/users/management?investor=${encodeURIComponent(i.id)}`),
+              onClick: (i) => router.push(`/admin/users/management?investor=${encodeURIComponent(i.id)}`),
             },
           ]}
           emptyMessage="No applicants match these filters."
@@ -290,7 +290,7 @@ export default function KycOverview() {
 }
 
 export const caseFor = (investorId: string) => KYC_CASES.find((c) => c.investorId === investorId);
-export const reviewHref = (investorId: string) => `/kyc/review?investor=${encodeURIComponent(investorId)}`;
+export const reviewHref = (investorId: string) => `/admin/kyc/review?investor=${encodeURIComponent(investorId)}`;
 
 /** Days since submission, counted against the fixed preview date so server and browser agree. */
 export function ageLabel(iso: string) {

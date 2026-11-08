@@ -296,7 +296,7 @@ function openReadiness() {
           variant="outline"
           className="rounded-full"
           nativeButton={false}
-          render={<Link href="/platform/banking" />}
+          render={<Link href="/admin/platform/banking" />}
         >
           Review core banking
         </Button>
@@ -576,7 +576,7 @@ export default function PlatformPage() {
           variant="outline"
           className="h-10 rounded-full px-4"
           nativeButton={false}
-          render={<Link href="/platform/banking" />}
+          render={<Link href="/admin/platform/banking" />}
         >
           Core banking
           <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden />

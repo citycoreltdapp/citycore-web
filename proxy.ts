@@ -1,4 +1,3 @@
-import { tenantPrefixForHost } from "@/lib/tenant-routing";
 import { NextRequest, NextResponse } from "next/server";
 
 export default async function proxy(req: NextRequest): Promise<NextResponse> {
@@ -6,20 +5,22 @@ export default async function proxy(req: NextRequest): Promise<NextResponse> {
 
   if (!host) return new NextResponse("Missing Host header", { status: 400 });
 
-  const url = req.nextUrl.clone();
+  //const url = req.nextUrl.clone();
 
-  const prefix = tenantPrefixForHost(host, {
-    admin: process.env.NEXT_PUBLIC_ADMIN_URL,
-    dashboard: process.env.NEXT_PUBLIC_DASHBOARD_URL,
-    app: process.env.NEXT_PUBLIC_APP_URL,
-  });
+  // const prefix = tenantPrefixForHost(host, {
+  //   admin: process.env.NEXT_PUBLIC_ADMIN_URL,
+  //   dashboard: process.env.NEXT_PUBLIC_DASHBOARD_URL,
+  //   app: process.env.NEXT_PUBLIC_APP_URL,
+  // });
 
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-url", `${req.nextUrl.pathname}${req.nextUrl.search}`);
+  // const requestHeaders = new Headers(req.headers);
+  // requestHeaders.set("x-url", `${req.nextUrl.pathname}${req.nextUrl.search}`);
 
-  url.pathname = `${prefix}${url.pathname}`;
+  // url.pathname = `${prefix}${url.pathname}`;
 
-  return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  // return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+
+  return NextResponse.next();
 }
 
 export const config = {
