@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { notificationTopicSchema } from "../notifications";
+
 const text = z.string().trim().min(1, "Please complete every field").max(2000);
 export const adminGrowthStateSchema = z.object({
   program: text,
@@ -19,6 +21,7 @@ export const adminGrowthStateSchema = z.object({
   audience: text,
   subject: text,
   body: text,
+  topic: notificationTopicSchema,
   cta: text,
   schedule: text,
   owner: text,

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { NOTIFICATION_TOPIC_LABELS, type NotificationTopic } from "@/constant/notifications";
 import { type GrowthDraft, adminGrowthStateSchema } from "@/constant/schemas/admin-growth";
 import { LockIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -17,9 +18,9 @@ import { toast } from "sonner";
 
 import { money } from "../_operations/treasury-ui";
 import { usePreviewState } from "../_operations/use-preview-state";
-import { FilterChips, SegmentBar, StatusPill, type Tone } from "../account/_ui";
-import { CardHeader, Section } from "../content/_ui";
-import { Initials } from "../users/_ui";
+import { FilterChips, SegmentBar, StatusPill, type Tone } from "../account/page";
+import { CardHeader, Section } from "../content/page";
+import { Initials } from "../users/page";
 import { GROWTH_DEFAULTS } from "./_data";
 
 type Status = "incentiveStatus" | "promoStatus" | "broadcastStatus" | "smsStatus";
@@ -129,6 +130,16 @@ function Composer({ ctx }: { ctx: Draft }) {
             items={TEMPLATES.map((t) => ({ value: t, label: t }))}
           />
           <DraftField ctx={ctx} name="audience" label="Segment" />
+          <SelectField
+            id="growth-topic"
+            label="Inbox topic"
+            value={draft.topic}
+            onChange={(value) => update("topic", value as NotificationTopic)}
+            items={(["wallet", "investments", "account"] as const).map((topic) => ({
+              value: topic,
+              label: NOTIFICATION_TOPIC_LABELS[topic],
+            }))}
+          />
         </div>
         <AudienceFunnel />
       </Section>
@@ -581,7 +592,7 @@ type View = "referrals" | "promo" | "broadcast" | "sms";
 const FIELD_STATUS: Record<Status, (keyof GrowthDraft)[]> = {
   incentiveStatus: ["program", "reward", "qualification", "cap", "attribution", "link", "review"],
   promoStatus: ["code", "benefit", "validity", "limits", "eligibility"],
-  broadcastStatus: ["subject", "body", "cta", "channel", "template", "audience", "schedule", "owner"],
+  broadcastStatus: ["subject", "body", "topic", "cta", "channel", "template", "audience", "schedule", "owner"],
   smsStatus: ["sms"],
 };
 const APPROVALS: { status: Status; view: View; label: string; note: (d: GrowthDraft) => string }[] = [

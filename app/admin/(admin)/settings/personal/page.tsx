@@ -19,7 +19,7 @@ import { FinanceSelect, FinanceText } from "../../_operations/treasury-ui";
 import { Notice, Panel } from "../../_operations/ui";
 import { usePreviewState } from "../../_operations/use-preview-state";
 import { PERSONAL_DEFAULTS } from "../../_operations/workspace-data";
-import { SecurityExtras } from "../_security-extras";
+import { SecurityExtras } from "../security/page";
 
 type State = z.infer<typeof adminPersonalStateSchema>;
 export default function PersonalSettings() {

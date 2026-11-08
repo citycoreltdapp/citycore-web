@@ -61,7 +61,7 @@ export function StatusBadge({ value }: { value: string }) {
     <Badge
       variant={["rejected", "blacklisted", "revoked", "mismatch"].includes(value) ? "destructive" : "secondary"}
       className={
-        ["pending", "suspended", "escalated", "blocked"].includes(value)
+        ["pending", "suspended", "actionRequired", "blocked"].includes(value)
           ? "bg-warning/10 text-warning capitalize"
           : "capitalize"
       }

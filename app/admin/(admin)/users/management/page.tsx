@@ -29,8 +29,8 @@ import { INVESTORS, STATUS_ITEMS } from "../../_operations/data";
 import { useReviewRequests } from "../../_operations/requests";
 import { Notice } from "../../_operations/ui";
 import { money } from "../../account/_data";
-import { FilterChips, SegmentBar, StatusPill, type Tone, formatDate, formatTime, toneDot } from "../../account/_ui";
-import { ACCOUNT_TONES, BackLink, DetailList, Initials, KYC_TONES, portfolio } from "../_ui";
+import { FilterChips, SegmentBar, StatusPill, type Tone, formatDate, formatTime, toneDot } from "../../account/page";
+import { ACCOUNT_TONES, BackLink, DetailList, Initials, KYC_LABELS, KYC_TONES, investorName, portfolio } from "../page";
 
 type StatusFilter = "all" | AdminInvestor["status"];
 const STATUS_FILTERS = ["all", "active", "suspended", "blacklisted"] as const;
@@ -71,9 +71,9 @@ function Confirmation({
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-3 rounded-xl bg-muted/60 p-3">
-        <Initials name={investor.name} />
+        <Initials name={investorName(investor)} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{investor.name}</p>
+          <p className="truncate text-sm font-semibold">{investorName(investor)}</p>
           <p className="text-xs text-muted-foreground">{investor.id}</p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -161,8 +161,8 @@ function StatusSheet({
         <SheetHeader className="gap-1 border-b border-border p-6">
           <SheetTitle className="text-base font-semibold">Change account status</SheetTitle>
           <SheetDescription>
-            {investor.name} is currently <span className="font-semibold text-foreground">{investor.status}</span>.
-            Changes need a second approver.
+            {investorName(investor)} is currently{" "}
+            <span className="font-semibold text-foreground">{investor.status}</span>. Changes need a second approver.
           </SheetDescription>
         </SheetHeader>
         <form
@@ -292,7 +292,7 @@ function PortfolioCard({ investor }: { investor: AdminInvestor }) {
       </div>
       <dl className="relative grid grid-cols-3 gap-4 border-t border-white/10 pt-5">
         {[
-          { label: "Wallet", value: money(investor.wallet) },
+          { label: "Wallet", value: money(investor.balance) },
           { label: "Investments", value: investor.investmentCount },
           { label: "Units", value: investor.units },
         ].map(({ label, value }) => (
@@ -318,7 +318,7 @@ export default function UserManagement() {
 
   const term = search.trim().toLowerCase();
   const rows = INVESTORS.filter((i) => status === "all" || i.status === status).filter(
-    (i) => !term || `${i.name} ${i.email} ${i.id}`.toLowerCase().includes(term)
+    (i) => !term || `${investorName(i)} ${i.email} ${i.id}`.toLowerCase().includes(term)
   );
   const pending = requests.filter((r) => r.subjectId === selected.id);
 
@@ -396,9 +396,9 @@ export default function UserManagement() {
                       isActive ? "bg-muted" : "hover:bg-muted/50"
                     )}
                   >
-                    <Initials name={investor.name} />
+                    <Initials name={investorName(investor)} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{investor.name}</span>
+                      <span className="block truncate text-sm font-semibold">{investorName(investor)}</span>
                       <span className="block text-xs text-muted-foreground tabular-nums">{investor.id}</span>
                     </span>
                     <span
@@ -416,15 +416,15 @@ export default function UserManagement() {
         <div className="flex min-w-0 flex-col gap-5">
           <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
             <div className="flex flex-wrap items-start gap-4">
-              <Initials name={selected.name} size="lg" className="size-14" />
+              <Initials name={investorName(selected)} size="lg" className="size-14" />
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-xl font-semibold tracking-tight">{selected.name}</h2>
+                <h2 className="truncate text-xl font-semibold tracking-tight">{investorName(selected)}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {selected.email} · {selected.phone}
                 </p>
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   <StatusPill tone={ACCOUNT_TONES[selected.status]}>{selected.status}</StatusPill>
-                  <StatusPill tone={KYC_TONES[selected.kycStatus]}>KYC {selected.kycStatus}</StatusPill>
+                  <StatusPill tone={KYC_TONES[selected.kycStatus]}>KYC {KYC_LABELS[selected.kycStatus]}</StatusPill>
                   <StatusPill tone="muted">Tier {selected.tier}</StatusPill>
                 </div>
               </div>
@@ -465,7 +465,7 @@ export default function UserManagement() {
                 <span className="text-xs text-muted-foreground">Masked</span>
               </div>
               <ul className="flex flex-col">
-                {linkedAccounts(selected.name).map((row) => (
+                {linkedAccounts(investorName(selected)).map((row) => (
                   <li
                     key={row.account}
                     className="flex items-center gap-3 border-b border-border py-3 last:border-none"
@@ -483,7 +483,7 @@ export default function UserManagement() {
                 className="mt-auto rounded-full"
                 onClick={() =>
                   AppModal.open({
-                    title: `${selected.name} · transactions`,
+                    title: `${investorName(selected)} · transactions`,
                     content: (
                       <Notice>
                         No investor transaction feed is connected yet. Connect the transactions API with investor ID{" "}

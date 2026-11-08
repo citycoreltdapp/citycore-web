@@ -24,9 +24,9 @@ import { useReviewRequests } from "../_operations/requests";
 import { TREASURY_ACCOUNTS, WITHDRAWAL_QUEUE } from "../_operations/treasury-data";
 import { FinanceNumber, FinanceSelect, FinanceText, money, reviewBatch } from "../_operations/treasury-ui";
 import { Notice } from "../_operations/ui";
-import { FilterChips, StatusPill, type Tone, formatDate, toneDot } from "../account/_ui";
-import { CheckMark } from "../kyc/_ui";
-import { DetailList, Initials } from "../users/_ui";
+import { FilterChips, StatusPill, type Tone, formatDate, toneDot } from "../account/page";
+import { CheckMark } from "../kyc/page";
+import { DetailList, Initials } from "../users/page";
 
 const REQUEST_KINDS = ["withdrawal-risk", "withdrawal-batch", "ledger-adjustment"];
 const RISK = {
@@ -108,9 +108,7 @@ function RiskReviewCard({
         <div>
           <p className="text-xs text-muted-foreground">Requested</p>
           <p className="mt-1 text-3xl font-light tabular-nums">{money(withdrawal.amount)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            To ••{withdrawal.bankLast4} · fee {money(withdrawal.fee)}
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">To ••{withdrawal.bankLast4} · Free</p>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <CheckMark ok={withdrawal.kycVerified} label="KYC" />
@@ -368,7 +366,7 @@ export default function TreasuryPage() {
                 {[
                   ["Selected", `${rows.length} of ${WITHDRAWAL_QUEUE.length}`],
                   ["Recipients receive", money(totals.recipients)],
-                  [`Fees · ${rows.length} × ₦50`, money(totals.fees)],
+                  ["Withdrawal fee", "Free"],
                   ["Wallet debit", money(totals.walletDebit)],
                 ].map(([label, value]) => (
                   <div key={label} className="min-w-0">

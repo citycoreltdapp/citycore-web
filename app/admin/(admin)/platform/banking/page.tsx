@@ -26,10 +26,10 @@ import { useReviewRequests } from "../../_operations/requests";
 import { BANKING_RETRIES, LEDGER_MAPPINGS } from "../../_operations/treasury-data";
 import { FinanceNumber, FinanceSelect, FinanceText, money, reviewBatch } from "../../_operations/treasury-ui";
 import { Notice } from "../../_operations/ui";
-import { FilterChips, StatusPill, type Tone, formatDate } from "../../account/_ui";
-import { CardHeader, type Reviews, Section } from "../../content/_ui";
-import { CheckMark } from "../../kyc/_ui";
-import { DetailList, Initials } from "../../users/_ui";
+import { FilterChips, StatusPill, type Tone, formatDate } from "../../account/page";
+import { CardHeader, type Reviews, Section } from "../../content/page";
+import { CheckMark } from "../../kyc/page";
+import { DetailList, Initials } from "../../users/page";
 
 const DEFAULTS: BankingConfigForm = {
   environment: "sandbox",

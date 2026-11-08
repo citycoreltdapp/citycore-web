@@ -30,11 +30,11 @@ import { CURRENT_REVIEWER, INVESTORS, KYC_CASES, STAFF } from "../../_operations
 import { useReviewRequests } from "../../_operations/requests";
 import { Notice } from "../../_operations/ui";
 import { AS_OF } from "../../account/_data";
-import { FilterChips, StatusPill, type Tone, formatDate, toneDot } from "../../account/_ui";
-import { BackLink, Initials, KYC_TONES } from "../../users/_ui";
-import { CheckMark, FACE_MATCH_THRESHOLD, ageLabel } from "../_ui";
+import { FilterChips, StatusPill, type Tone, formatDate, toneDot } from "../../account/page";
+import { BackLink, Initials, KYC_LABELS, KYC_TONES, investorName } from "../../users/page";
+import { CheckMark, FACE_MATCH_THRESHOLD, ageLabel } from "../page";
 
-type Queue = "pending" | "escalated";
+type Queue = "pending" | "actionRequired";
 const investorOf = (record: KycCase) => INVESTORS.find((i) => i.id === record.investorId)!;
 const REVIEWERS = STAFF.filter((s) => s.role === "compliance" || s.role === "super-admin");
 const SUPER_ADMINS = STAFF.filter((s) => s.role === "super-admin");
@@ -49,7 +49,7 @@ function inspect(kind: keyof typeof EVIDENCE, record: KycCase) {
   const { title, action } = EVIDENCE[kind];
   AppModal.open({
     title,
-    description: `${investorOf(record).name} · ${record.id}`,
+    description: `${investorName(investorOf(record))} · ${record.id}`,
     content: (
       <div className="space-y-4">
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 px-6 py-10 text-center">
@@ -75,7 +75,7 @@ function EvidenceCard({ kind, record }: { kind: keyof typeof EVIDENCE; record: K
   const facts: [string, string][] =
     kind === "passport"
       ? [
-          ["Name", investor.name],
+          ["Name", investorName(investor)],
           ["Number", `A••••••${record.idLast4}`],
           ["Expires", formatDate(record.idExpiry)],
         ]
@@ -237,7 +237,7 @@ function DecisionCard({ record }: { record: KycCase }) {
   const decision = useWatch({ control: form.control, name: "decision" });
   const caseRequests = requests.filter((r) => r.subjectId === record.id);
   const pending = caseRequests.some((r) => r.kind === "kyc-decision");
-  const eligible = record.status === "pending" || record.status === "escalated";
+  const eligible = record.status === "pending" || record.status === "actionRequired";
   const matches = record.bvnMatch && record.ninMatch;
 
   function review(values: KycDecisionForm) {
@@ -404,14 +404,14 @@ export default function KycReview() {
   const initial = KYC_CASES.find((c) => c.investorId === requested);
   const [selectedId, setSelectedId] = React.useState(initial?.id ?? KYC_CASES[0].id);
   const [search, setSearch] = React.useState("");
-  const [queue, setQueue] = React.useState<Queue>(initial?.status === "escalated" ? "escalated" : "pending");
+  const [queue, setQueue] = React.useState<Queue>(initial?.status === "actionRequired" ? "actionRequired" : "pending");
   const [reviewer, setReviewer] = React.useState(CURRENT_REVIEWER);
   const selected = KYC_CASES.find((c) => c.id === selectedId)!;
   const investor = investorOf(selected);
 
   const term = search.trim().toLowerCase();
   const cases = KYC_CASES.filter((c) => c.status === queue)
-    .filter((c) => !term || `${c.id} ${investorOf(c).name}`.toLowerCase().includes(term))
+    .filter((c) => !term || `${c.id} ${investorName(investorOf(c))}`.toLowerCase().includes(term))
     .toSorted((a, b) => a.submittedAt.localeCompare(b.submittedAt));
 
   const select = (record: KycCase) => {
@@ -478,9 +478,9 @@ export default function KycReview() {
             label="Queue"
             value={queue}
             onChange={setQueue}
-            options={(["pending", "escalated"] as const).map((value) => ({
+            options={(["pending", "actionRequired"] as const).map((value) => ({
               value,
-              label: value === "pending" ? "Pending" : "Escalated",
+              label: KYC_LABELS[value],
               count: KYC_CASES.filter((c) => c.status === value).length,
             }))}
           />
@@ -500,9 +500,9 @@ export default function KycReview() {
                       isActive ? "bg-muted" : "hover:bg-muted/50"
                     )}
                   >
-                    <Initials name={person.name} />
+                    <Initials name={investorName(person)} />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{person.name}</span>
+                      <span className="block truncate text-sm font-semibold">{investorName(person)}</span>
                       <span className="block text-xs text-muted-foreground tabular-nums">
                         {record.id} · Tier {record.tier}
                       </span>
@@ -524,15 +524,15 @@ export default function KycReview() {
         <div className="flex min-w-0 flex-col gap-5">
           <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
             <div className="flex flex-wrap items-start gap-4">
-              <Initials name={investor.name} size="lg" className="size-14" />
+              <Initials name={investorName(investor)} size="lg" className="size-14" />
               <div className="min-w-0 flex-1">
-                <h2 className="truncate text-xl font-semibold tracking-tight">{investor.name}</h2>
+                <h2 className="truncate text-xl font-semibold tracking-tight">{investorName(investor)}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {selected.id} · submitted {formatDate(selected.submittedAt)} (
                   {ageLabel(selected.submittedAt).toLowerCase()})
                 </p>
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  <StatusPill tone={KYC_TONES[selected.status]}>{selected.status}</StatusPill>
+                  <StatusPill tone={KYC_TONES[selected.status]}>{KYC_LABELS[selected.status]}</StatusPill>
                   <StatusPill tone="muted">Tier {selected.tier}</StatusPill>
                   <StatusPill tone={failed ? "danger" : "success"}>
                     {failed ? `${failed} check${failed > 1 ? "s" : ""} failed` : "All checks passed"}
@@ -554,7 +554,7 @@ export default function KycReview() {
             </div>
             <dl className="grid grid-cols-2 gap-4 border-t border-border pt-4 text-sm sm:grid-cols-4">
               {[
-                ["Legal name", investor.name],
+                ["Legal name", investorName(investor)],
                 ["Date of birth", `•• / •• / ${selected.birthYear}`],
                 ["BVN", `•••••••${selected.bvnLast4}`],
                 ["NIN", `•••••••${selected.ninLast4}`],

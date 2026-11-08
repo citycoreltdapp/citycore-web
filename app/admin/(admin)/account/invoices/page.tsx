@@ -15,9 +15,16 @@ import { cn } from "cn";
 import Link from "next/link";
 
 import { dueLabel, money } from "../_data";
-import { copyInvoiceNumber, openInvoice, printInvoice } from "../_invoice-preview";
 import { useAccount } from "../_store";
-import { FilterChips, INVOICE_TONES, StatusPill, formatDate } from "../_ui";
+import {
+  FilterChips,
+  INVOICE_TONES,
+  StatusPill,
+  copyInvoiceNumber,
+  formatDate,
+  openInvoice,
+  printInvoice,
+} from "../page";
 
 type StatusFilter = "all" | AdminInvoice["status"];
 const STATUSES = ["all", "unpaid", "paid", "rejected", "draft"] as const;

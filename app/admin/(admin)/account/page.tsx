@@ -2,13 +2,14 @@
 
 import * as React from "react";
 
+import { AppModal } from "@/components/primitives/app-modal";
 import { DataTable } from "@/components/primitives/data-table";
 import { SearchField } from "@/components/primitives/search-field";
 import { SelectField } from "@/components/primitives/select-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { type AdminAccountTransaction } from "@/constant/schemas/admin-account";
+import { type AdminAccountTransaction, type AdminInvoice } from "@/constant/schemas/admin-account";
 import {
   Add01Icon,
   ArrowDownLeft01Icon,
@@ -17,28 +18,17 @@ import {
   Copy01Icon,
   Download04Icon,
   Invoice01Icon,
+  PrinterIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { cn } from "cn";
+import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 
-import { ACCOUNT_TRANSACTIONS, AS_OF, money } from "./_data";
-import { openInvoice } from "./_invoice-preview";
+import { ACCOUNT_TRANSACTIONS, AS_OF, CATEGORY_LABELS, TEMPLATE_LABELS, dueLabel, money } from "./_data";
 import { useAccount } from "./_store";
-import {
-  FilterChips,
-  INVOICE_TONES,
-  SegmentBar,
-  StatusPill,
-  TRANSACTION_TONES,
-  downloadCsv,
-  formatDate,
-  formatTime,
-  toneBar,
-  toneDot,
-} from "./_ui";
 
 function TransactionSheet({
   transaction,
@@ -466,4 +456,317 @@ export default function AccountOverview() {
       <TransactionSheet transaction={selected} onClose={() => setSelected(null)} />
     </>
   );
+}
+
+export type Tone = "success" | "warning" | "danger" | "muted";
+
+const TONE_STYLES: Record<Tone, { pill: string; dot: string; bar: string }> = {
+  success: { pill: "bg-success/12 text-success", dot: "bg-success", bar: "bg-success" },
+  warning: { pill: "bg-warning/12 text-warning", dot: "bg-warning", bar: "bg-warning" },
+  danger: { pill: "bg-destructive/10 text-destructive", dot: "bg-destructive", bar: "bg-destructive" },
+  muted: { pill: "bg-muted text-muted-foreground", dot: "bg-muted-foreground", bar: "bg-muted-foreground/50" },
+};
+
+export const toneBar = (tone: Tone) => TONE_STYLES[tone].bar;
+export const toneDot = (tone: Tone) => TONE_STYLES[tone].dot;
+
+export const TRANSACTION_TONES = { successful: "success", pending: "warning", cancelled: "danger" } as const;
+export const INVOICE_TONES = { paid: "success", unpaid: "warning", rejected: "danger", draft: "muted" } as const;
+
+export function StatusPill({ tone, children }: { tone: Tone; children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold capitalize",
+        TONE_STYLES[tone].pill
+      )}
+    >
+      <span aria-hidden className={cn("size-1.5 rounded-full", TONE_STYLES[tone].dot)} />
+      {children}
+    </span>
+  );
+}
+
+/** A row of filter pills, each showing how many rows it would leave. */
+export function FilterChips<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: string; count?: number }[];
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      className="flex max-w-full gap-1 overflow-x-auto rounded-full bg-muted p-1"
+    >
+      {options.map((option) => {
+        const isActive = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isActive
+                ? "bg-card font-semibold text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {option.label}
+            {option.count !== undefined && (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 text-[10px] tabular-nums",
+                  isActive ? "bg-foreground text-background" : "bg-background/70"
+                )}
+              >
+                {option.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** A thin bar split into coloured parts by value. */
+export function SegmentBar({
+  parts,
+  className,
+}: {
+  parts: { key: string; value: number; className: string }[];
+  className?: string;
+}) {
+  const total = parts.reduce((sum, part) => sum + part.value, 0) || 1;
+  return (
+    <div aria-hidden className={cn("flex h-2 w-full gap-0.5 overflow-hidden rounded-full", className)}>
+      {parts
+        .filter((part) => part.value > 0)
+        .map((part) => (
+          <span
+            key={part.key}
+            className={cn("h-full rounded-full transition-[flex-grow] duration-500", part.className)}
+            style={{ flexGrow: part.value / total }}
+          />
+        ))}
+    </div>
+  );
+}
+
+// Formatted in UTC so the server and the browser print the same thing.
+const DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const TIME = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+export const formatDate = (iso: string) => DATE.format(new Date(iso.length === 10 ? `${iso}T00:00:00Z` : iso));
+export const formatTime = (iso: string) => TIME.format(new Date(iso));
+
+/**
+ * Downloads rows as a CSV file. Values are quoted so commas survive, and text starting with = + or @ gets a
+ * leading apostrophe so a spreadsheet can't run it as a formula.
+ */
+export function downloadCsv(filename: string, header: string[], rows: (string | number)[][]) {
+  const cell = (value: string | number) => {
+    const text = typeof value === "string" && /^[=+@\t\r]/.test(value) ? `'${value}` : String(value);
+    return `"${text.replaceAll('"', '""')}"`;
+  };
+  const csv = [header, ...rows].map((row) => row.map(cell).join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/** What the document needs. A draft being typed can have blanks, so everything is optional except the money. */
+export type InvoiceDocumentData = Partial<Omit<AdminInvoice, "amount" | "rate">> & { amount: number; rate: number };
+
+function Field({ label, value, className }: { label: string; value?: string; className?: string }) {
+  return (
+    <div className={cn("min-w-0", className)}>
+      <dt className="text-[11px] tracking-wide text-muted-foreground uppercase">{label}</dt>
+      <dd className={cn("mt-1 truncate text-sm font-semibold", !value && "font-normal text-muted-foreground/60")}>
+        {value || "—"}
+      </dd>
+    </div>
+  );
+}
+
+/** The invoice itself, shared by the preview, the live preview while writing one, and the printed copy. */
+export function InvoiceDocument({ invoice, className }: { invoice: InvoiceDocumentData; className?: string }) {
+  const due = invoice.dueDate ? dueLabel(invoice.dueDate) : null;
+
+  return (
+    <article className={cn("overflow-hidden rounded-2xl bg-card ring-1 ring-foreground/8", className)}>
+      <header className="flex items-start justify-between gap-4 bg-[#121212] p-5 text-white">
+        <div className="flex items-center gap-2.5">
+          <Image src="/assets/images/logo.png" alt="" width={34} height={40} className="size-8 object-contain" />
+          <div>
+            <p className="text-sm font-semibold">City Core</p>
+            <p className="text-xs text-white/60">Invoice</p>
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-xs text-white/60">Invoice no.</p>
+          <p className="text-base font-semibold tabular-nums">#{invoice.invoiceNumber || "—"}</p>
+        </div>
+      </header>
+
+      <div className="flex flex-col gap-5 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {invoice.status ? (
+            <StatusPill tone={INVOICE_TONES[invoice.status]}>{invoice.status}</StatusPill>
+          ) : (
+            <StatusPill tone="muted">Not saved</StatusPill>
+          )}
+          {due && invoice.status !== "paid" && (
+            <p className={cn("text-xs", due.isOverdue ? "text-destructive" : "text-muted-foreground")}>{due.text}</p>
+          )}
+        </div>
+
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+          <Field label="Billed to" value={invoice.companyName} className="col-span-2" />
+          <div className="col-span-2 -mt-3 text-xs/5 text-muted-foreground">
+            {[invoice.address, invoice.email, invoice.phone].filter(Boolean).join(" · ") || "Address and contact"}
+          </div>
+          <Field label="Issued" value={invoice.createdAt ? formatDate(invoice.createdAt) : undefined} />
+          <Field label="Due" value={invoice.dueDate ? formatDate(invoice.dueDate) : undefined} />
+          <Field label="Template" value={invoice.template ? TEMPLATE_LABELS[invoice.template] : undefined} />
+          <Field label="Category" value={invoice.category ? CATEGORY_LABELS[invoice.category] : undefined} />
+        </dl>
+
+        <div className="rounded-xl bg-muted/50 p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] tracking-wide text-muted-foreground uppercase">Service</p>
+              <p className={cn("mt-1 text-sm/6 wrap-break-word", !invoice.description && "text-muted-foreground/60")}>
+                {invoice.description || "What you're billing for"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground tabular-nums">Rate {invoice.rate || 0}%</p>
+            </div>
+            <p className="shrink-0 text-sm font-semibold tabular-nums">{money(invoice.amount || 0)}</p>
+          </div>
+        </div>
+
+        <dl className="ml-auto flex w-full max-w-60 flex-col gap-2 text-sm">
+          <div className="flex justify-between gap-4 text-muted-foreground">
+            <dt>Subtotal</dt>
+            <dd className="tabular-nums">{money(invoice.amount || 0)}</dd>
+          </div>
+          <div className="flex justify-between gap-4 text-muted-foreground">
+            <dt>Tax</dt>
+            <dd className="tabular-nums">{money(0)}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 border-t border-border pt-2">
+            <dt className="font-semibold">Total</dt>
+            <dd className="text-xl font-light tabular-nums">{money(invoice.amount || 0)}</dd>
+          </div>
+        </dl>
+
+        <p className="text-[11px]/4 text-muted-foreground">
+          Illustrative invoice. The rate is service metadata; no tax is added.
+        </p>
+      </div>
+    </article>
+  );
+}
+
+/** Opens a print window with a plain copy. Built from text nodes, so invoice fields can't inject markup. */
+export function printInvoice(invoice: AdminInvoice) {
+  const popup = window.open("", "_blank", "width=820,height=900");
+  if (!popup) {
+    toast.error("Allow pop-ups to print or save this invoice as PDF.");
+    return;
+  }
+  const doc = popup.document;
+  doc.title = `Invoice ${invoice.invoiceNumber}`;
+  const style = doc.createElement("style");
+  style.textContent = [
+    "body{font:14px/1.6 Lato,system-ui,sans-serif;color:#121212;margin:0;padding:48px}",
+    "header{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #121212;padding-bottom:16px}",
+    "h1{font-size:28px;font-weight:300;margin:0}.muted{color:#6c635a}.label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#6c635a}",
+    "section{margin-top:28px}.row{display:flex;justify-content:space-between;gap:24px;padding:6px 0}",
+    ".total{border-top:1px solid #e4dbd1;margin-top:8px;padding-top:12px;font-size:20px}",
+  ].join("");
+  doc.head.append(style);
+
+  const add = (parent: HTMLElement, tag: string, text = "", className = "") => {
+    const element = doc.createElement(tag);
+    element.textContent = text;
+    if (className) element.className = className;
+    parent.append(element);
+    return element;
+  };
+  const header = add(doc.body, "header");
+  const brand = add(header, "div");
+  add(brand, "div", "City Core", "label");
+  add(brand, "h1", "Invoice");
+  const meta = add(header, "div");
+  add(meta, "div", `#${invoice.invoiceNumber}`);
+  add(meta, "div", invoice.status.toUpperCase(), "muted");
+
+  const billed = add(doc.body, "section");
+  add(billed, "div", "Billed to", "label");
+  add(billed, "div", invoice.companyName);
+  add(billed, "div", `${invoice.address} · ${invoice.email} · ${invoice.phone}`, "muted");
+
+  const dates = add(doc.body, "section");
+  for (const [label, value] of [
+    ["Issued", formatDate(invoice.createdAt)],
+    ["Due", formatDate(invoice.dueDate)],
+    ["Template", TEMPLATE_LABELS[invoice.template]],
+  ]) {
+    const row = add(dates, "div", "", "row");
+    add(row, "span", label, "muted");
+    add(row, "span", value);
+  }
+
+  const service = add(doc.body, "section");
+  add(service, "div", "Service", "label");
+  const line = add(service, "div", "", "row");
+  add(line, "span", `${invoice.description} (rate ${invoice.rate}%)`);
+  add(line, "span", money(invoice.amount));
+  const total = add(service, "div", "", "row total");
+  add(total, "span", "Total");
+  add(total, "span", money(invoice.amount));
+
+  add(doc.body, "p", "Illustrative invoice. The rate is service metadata; no tax is added.", "muted");
+  popup.focus();
+  popup.print();
+}
+
+export function copyInvoiceNumber(invoice: AdminInvoice) {
+  navigator.clipboard
+    .writeText(invoice.invoiceNumber)
+    .then(() => toast.success(`Copied #${invoice.invoiceNumber}.`))
+    .catch(() => toast.error("Clipboard access is unavailable."));
+}
+
+export function openInvoice(invoice: AdminInvoice) {
+  AppModal.open({
+    title: invoice.description,
+    description: `${invoice.companyName} · #${invoice.invoiceNumber}`,
+    content: <InvoiceDocument invoice={invoice} />,
+    footer: (
+      <div className="flex w-full flex-wrap justify-end gap-2">
+        <Button variant="outline" className="rounded-full" onClick={() => copyInvoiceNumber(invoice)}>
+          <HugeiconsIcon icon={Copy01Icon} aria-hidden />
+          Copy number
+        </Button>
+        <Button className="rounded-full" onClick={() => printInvoice(invoice)}>
+          <HugeiconsIcon icon={PrinterIcon} aria-hidden />
+          Print or save PDF
+        </Button>
+      </div>
+    ),
+  });
 }

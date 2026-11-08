@@ -228,6 +228,9 @@ accept(s.kycDecisionFormSchema, {
   message: "",
   reviewed: true,
 });
+assert.equal(s.investorKycAfterDecision.approve, "verified");
+assert.equal(s.investorKycAfterDecision.reject, "actionRequired");
+assert.equal(s.investorKycAfterDecision["request-information"], "actionRequired");
 reject(s.kycDecisionFormSchema, {
   decision: "reject",
   reason: "Identity and address evidence reviewed and mismatched",
@@ -362,9 +365,29 @@ reject(s.returnScheduleFormSchema, { ...schedule, periodEnd: "2026-06-01" });
 reject(s.returnScheduleFormSchema, { ...schedule, withholdingRate: 101 });
 assert.deepEqual(preview.withdrawalTotals([treasury.WITHDRAWAL_QUEUE[0], treasury.WITHDRAWAL_QUEUE[2]]), {
   recipients: 3000000,
-  fees: 100,
-  walletDebit: 3000100,
+  fees: 0,
+  walletDebit: 3000000,
 });
+treasury.WITHDRAWAL_QUEUE.forEach((row) =>
+  accept(s.transactionSchema, {
+    id: row.id,
+    title: row.name,
+    type: "withdrawal",
+    status: row.status,
+    amount: -row.amount,
+    date: "2026-11-08T12:00:00Z",
+  })
+);
+treasury.DISBURSEMENT_HISTORY.forEach((row) =>
+  accept(s.transactionSchema, {
+    id: row.id,
+    title: row.type === "principal" ? "Principal release" : "Dividend",
+    type: "payout",
+    status: row.status,
+    amount: row.net,
+    date: `${row.scheduledDate}T00:00:00Z`,
+  })
+);
 assert.deepEqual(preview.withdrawalTotals([]), { recipients: 0, fees: 0, walletDebit: 0 });
 assert.throws(() => preview.withdrawalTotals([treasury.WITHDRAWAL_QUEUE[0], treasury.WITHDRAWAL_QUEUE[0]]));
 const independent = {
@@ -435,6 +458,13 @@ console.log("Treasury fixtures, cent calculations, independent reviews and banki
 const growthSchemas = load("constant/schemas/admin-growth.ts");
 const growthDefaults = load("app/admin/(admin)/growth/_data.ts").GROWTH_DEFAULTS;
 accept(growthSchemas.adminGrowthStateSchema, growthDefaults);
+accept(notifications.inboxMessageSchema, {
+  id: "broadcast-draft",
+  title: growthDefaults.subject,
+  message: growthDefaults.body,
+  topic: growthDefaults.topic,
+  date: "2026-11-08T12:00:00Z",
+});
 reject(growthSchemas.adminGrowthStateSchema, { ...growthDefaults, subject: " " });
 reject(growthSchemas.adminGrowthStateSchema, { ...growthDefaults, sms: "x".repeat(161) });
 reject(growthSchemas.adminGrowthStateSchema, { ...growthDefaults, broadcastStatus: "approved" });

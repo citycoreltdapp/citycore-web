@@ -7,7 +7,8 @@ import {
   resourceIdSchema,
   timestampSchema,
 } from "./common";
-import { propertySchema, propertyStatusSchema, propertyTypeSchema } from "./marketplace";
+import { propertyDocumentSchema, propertySchema, propertyStatusSchema, propertyTypeSchema } from "./marketplace";
+import { referralPlanSchema } from "./referrals";
 
 export const propertyImageSchema = z.enum(["golden-estate", "residences", "waterfront", "skyline", "city-lights"]);
 export const adminInvestmentStatusSchema = z.enum(["draft", "active", "paused", "pending-review"]);
@@ -66,6 +67,8 @@ export const adminInvestmentSchema = adminInvestmentFormSchema
     publicationStatus: adminInvestmentStatusSchema,
     version: z.number().int().nonnegative(),
     updatedAt: timestampSchema,
+    referralPlan: referralPlanSchema.nullish(),
+    documents: z.array(propertyDocumentSchema).optional(),
   })
   .refine((v) => v.unitsSold <= v.totalUnits, {
     path: ["totalUnits"],

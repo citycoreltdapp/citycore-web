@@ -45,7 +45,7 @@ import { useReviewRequests } from "../_operations/requests";
 import { FinanceDate, FinanceSelect, FinanceText, downloadCsv, money, reviewBatch } from "../_operations/treasury-ui";
 import { Notice } from "../_operations/ui";
 import { REPORT_ROWS } from "../_operations/workspace-data";
-import { FilterChips, SegmentBar, StatusPill, type Tone, formatDate } from "../account/_ui";
+import { FilterChips, SegmentBar, StatusPill, type Tone, formatDate } from "../account/page";
 
 function PropertyAnalytics() {
   const principal = PROPERTIES.reduce((sum, i) => sum + i.unitsSold * i.unitPrice, 0);

@@ -28,8 +28,8 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { PERMISSIONS, ROLE_ITEMS, STAFF } from "../../_operations/data";
 import { useReviewRequests } from "../../_operations/requests";
 import { Notice } from "../../_operations/ui";
-import { StatusPill, formatDate } from "../../account/_ui";
-import { ACCESS_TONES, BackLink, DetailList, Initials, roleLabel } from "../_ui";
+import { StatusPill, formatDate } from "../../account/page";
+import { ACCESS_TONES, BackLink, DetailList, Initials, roleLabel } from "../page";
 
 const ACTOR = "staff-nneka";
 const ACCESS_KINDS = ["role", "revoke", "permissions"];

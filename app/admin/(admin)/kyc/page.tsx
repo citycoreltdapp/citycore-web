@@ -7,8 +7,8 @@ import { SearchField } from "@/components/primitives/search-field";
 import { SelectField } from "@/components/primitives/select-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { type AdminInvestor } from "@/constant/schemas/admin-people";
-import { ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { type AdminInvestor, type KycCase } from "@/constant/schemas/admin-people";
+import { ArrowRight01Icon, CancelCircleIcon, CheckmarkCircle02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { cn } from "cn";
@@ -16,13 +16,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { INVESTORS, KYC_CASES } from "../_operations/data";
-import { FilterChips, SegmentBar, StatusPill, formatDate, toneBar, toneDot } from "../account/_ui";
-import { Initials, InvestorSheet, KYC_TONES, PersonCell } from "../users/_ui";
-import { ChecksSummary, ageLabel, caseFor, reviewHref } from "./_ui";
+import { AS_OF } from "../account/_data";
+import { FilterChips, SegmentBar, StatusPill, formatDate, toneBar, toneDot } from "../account/page";
+import { Initials, InvestorSheet, KYC_LABELS, KYC_TONES, PersonCell, investorName } from "../users/page";
 
 type StatusFilter = "all" | AdminInvestor["kycStatus"];
-const STATUSES = ["all", "pending", "escalated", "approved", "rejected"] as const;
-const OPEN = KYC_CASES.filter((c) => c.status === "pending" || c.status === "escalated").toSorted((a, b) =>
+const STATUSES = ["all", "notStarted", "pending", "verified", "actionRequired"] as const;
+const OPEN = KYC_CASES.filter((c) => c.status === "pending" || c.status === "actionRequired").toSorted((a, b) =>
   a.submittedAt.localeCompare(b.submittedAt)
 );
 const countOf = (status: StatusFilter) => INVESTORS.filter((i) => status === "all" || i.kycStatus === status).length;
@@ -31,7 +31,7 @@ const columns: ColumnDef<AdminInvestor>[] = [
   {
     accessorKey: "name",
     header: "Applicant",
-    cell: ({ row }) => <PersonCell name={row.original.name} detail={row.original.id} />,
+    cell: ({ row }) => <PersonCell name={investorName(row.original)} detail={row.original.id} />,
   },
   { accessorKey: "tier", header: "Tier", cell: ({ getValue }) => `Tier ${getValue<number>()}` },
   {
@@ -59,14 +59,16 @@ const columns: ColumnDef<AdminInvestor>[] = [
   {
     accessorKey: "kycStatus",
     header: "Status",
-    cell: ({ row }) => <StatusPill tone={KYC_TONES[row.original.kycStatus]}>{row.original.kycStatus}</StatusPill>,
+    cell: ({ row }) => (
+      <StatusPill tone={KYC_TONES[row.original.kycStatus]}>{KYC_LABELS[row.original.kycStatus]}</StatusPill>
+    ),
   },
 ];
 
 function QueueHealthCard() {
-  const decided = countOf("approved") + countOf("rejected");
+  const decided = countOf("verified") + countOf("actionRequired");
   const mismatches = OPEN.filter((c) => !c.bvnMatch || !c.ninMatch).length;
-  const groups = (["approved", "pending", "escalated", "rejected"] as const).map((status) => ({
+  const groups = (["verified", "pending", "actionRequired", "notStarted"] as const).map((status) => ({
     status,
     count: countOf(status),
   }));
@@ -95,7 +97,7 @@ function QueueHealthCard() {
             key: status,
             value: count,
             className:
-              status === "pending" ? "bg-white/40" : status === "approved" ? "bg-accent" : toneBar(KYC_TONES[status]),
+              status === "pending" ? "bg-white/40" : status === "verified" ? "bg-accent" : toneBar(KYC_TONES[status]),
           }))}
         />
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -107,7 +109,7 @@ function QueueHealthCard() {
                   "size-2 rounded-full",
                   status === "pending"
                     ? "bg-white/40"
-                    : status === "approved"
+                    : status === "verified"
                       ? "bg-accent"
                       : toneDot(KYC_TONES[status])
                 )}
@@ -123,10 +125,10 @@ function QueueHealthCard() {
         {[
           {
             label: "Approval rate",
-            value: decided ? `${Math.round((countOf("approved") / decided) * 100)}%` : "—",
+            value: decided ? `${Math.round((countOf("verified") / decided) * 100)}%` : "—",
             note: `of ${decided} decided`,
           },
-          { label: "Escalated", value: countOf("escalated"), note: "need a second look" },
+          { label: "Action required", value: countOf("actionRequired"), note: "waiting on the investor" },
           { label: "Mismatches", value: mismatches, note: "BVN or NIN failed" },
         ].map(({ label, value, note }) => (
           <div key={label} className="min-w-0">
@@ -165,14 +167,14 @@ function NextUpCard() {
                 href={reviewHref(investor.id)}
                 className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <Initials name={investor.name} />
+                <Initials name={investorName(investor)} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-semibold">{investor.name}</span>
+                  <span className="block truncate text-sm font-semibold">{investorName(investor)}</span>
                   <span className="block text-xs text-muted-foreground">
                     {record.id} · {ageLabel(record.submittedAt)}
                   </span>
                 </span>
-                <StatusPill tone={KYC_TONES[record.status]}>{record.status}</StatusPill>
+                <StatusPill tone={KYC_TONES[record.status]}>{KYC_LABELS[record.status]}</StatusPill>
               </Link>
             </li>
           );
@@ -193,9 +195,11 @@ export default function KycOverview() {
   const term = search.trim().toLowerCase();
   const submitted = (i: AdminInvestor) => caseFor(i.id)?.submittedAt ?? "";
   const rows = INVESTORS.filter((i) => status === "all" || i.kycStatus === status)
-    .filter((i) => !term || `${i.name} ${i.id} ${i.phone} ${caseFor(i.id)?.id ?? ""}`.toLowerCase().includes(term))
+    .filter(
+      (i) => !term || `${investorName(i)} ${i.id} ${i.phone} ${caseFor(i.id)?.id ?? ""}`.toLowerCase().includes(term)
+    )
     .toSorted((a, b) => {
-      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "name") return investorName(a).localeCompare(investorName(b));
       const [x, y] = [submitted(a), submitted(b)];
       if (!x || !y) return x ? -1 : y ? 1 : 0;
       return sort === "oldest" ? x.localeCompare(y) : y.localeCompare(x);
@@ -233,7 +237,7 @@ export default function KycOverview() {
             onChange={setStatus}
             options={STATUSES.map((value) => ({
               value,
-              label: value === "all" ? "All" : value[0].toUpperCase() + value.slice(1),
+              label: value === "all" ? "All" : KYC_LABELS[value],
               count: countOf(value),
             }))}
           />
@@ -282,5 +286,38 @@ export default function KycOverview() {
 
       <InvestorSheet investor={quickLook} onClose={() => setQuickLook(null)} />
     </>
+  );
+}
+
+export const caseFor = (investorId: string) => KYC_CASES.find((c) => c.investorId === investorId);
+export const reviewHref = (investorId: string) => `/kyc/review?investor=${encodeURIComponent(investorId)}`;
+
+/** Days since submission, counted against the fixed preview date so server and browser agree. */
+export function ageLabel(iso: string) {
+  const days = Math.round((Date.parse(AS_OF) - Date.parse(iso.slice(0, 10))) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days} days ago`;
+}
+
+export const FACE_MATCH_THRESHOLD = 90;
+
+export function CheckMark({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <span className={cn("inline-flex items-center gap-1 text-xs", ok ? "text-success" : "text-destructive")}>
+      <HugeiconsIcon icon={ok ? CheckmarkCircle02Icon : CancelCircleIcon} aria-hidden className="size-3.5" />
+      <span className={ok ? "text-muted-foreground" : "font-semibold"}>{label}</span>
+      <span className="sr-only">{ok ? "matched" : "failed"}</span>
+    </span>
+  );
+}
+
+export function ChecksSummary({ record }: { record: KycCase }) {
+  return (
+    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <CheckMark ok={record.bvnMatch} label="BVN" />
+      <CheckMark ok={record.ninMatch} label="NIN" />
+      <CheckMark ok={record.faceMatch >= FACE_MATCH_THRESHOLD} label={`Face ${record.faceMatch}%`} />
+    </span>
   );
 }

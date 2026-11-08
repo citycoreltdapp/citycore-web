@@ -21,10 +21,10 @@ export const PLATFORM_DEFAULTS: PlatformState = {
     {
       operation: "withdrawal",
       label: "Withdrawal",
-      fee: 50,
+      fee: 0,
       perTransaction: 2000000,
       dailyLimit: 5000000,
-      eligibility: "Approved KYC + bank",
+      eligibility: "Verified KYC + linked bank",
     },
     {
       operation: "electricity",

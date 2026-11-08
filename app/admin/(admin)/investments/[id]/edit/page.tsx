@@ -2,7 +2,7 @@
 
 import { useParams } from "next/navigation";
 
-import { InvestmentEditor } from "../../_editor";
+import { InvestmentEditor } from "../../new/page";
 
 export default function Page() {
   const { id } = useParams<{ id: string }>();

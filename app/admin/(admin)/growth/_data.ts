@@ -18,6 +18,7 @@ export const GROWTH_DEFAULTS: GrowthDraft = {
   audience: "Verified investors · Lagos interest",
   subject: "Explore the Golden Estate prospectus",
   body: "Review Golden Estate’s 12-month offering, target return assumptions and risks before investing.",
+  topic: "investments",
   cta: "Read prospectus / Golden Estate details",
   schedule: "Save draft · no send scheduled",
   owner: "Compliance + Communications Lead",

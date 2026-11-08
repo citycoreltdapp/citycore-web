@@ -36,6 +36,8 @@ export const ADMIN_INVESTMENTS: AdminInvestment[] = PROPERTIES.map((property) =>
   publicationStatus: "active",
   version: 1,
   updatedAt: "2026-11-07T08:00:00Z",
+  referralPlan: property.referralPlan ?? null,
+  documents: property.documents,
 }));
 
 /** The investor-facing offering this record publishes, for the shared marketplace components. */
@@ -58,6 +60,8 @@ export const toProperty = (record: AdminInvestment): Property => ({
   completionDate: record.completionDate,
   description: record.description,
   highlights: record.highlights,
+  referralPlan: record.referralPlan ?? null,
+  documents: record.documents,
 });
 
 export const TYPE_ITEMS = [

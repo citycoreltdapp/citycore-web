@@ -29,9 +29,9 @@ import { FinanceNumber, money } from "../_operations/treasury-ui";
 import { Notice } from "../_operations/ui";
 import { usePreviewState } from "../_operations/use-preview-state";
 import { AS_OF } from "../account/_data";
-import { FilterChips, StatusPill } from "../account/_ui";
-import { CardHeader } from "../content/_ui";
-import { DetailList, Initials } from "../users/_ui";
+import { FilterChips, StatusPill } from "../account/page";
+import { CardHeader } from "../content/page";
+import { DetailList, Initials } from "../users/page";
 import { CONFIG_HISTORY, PLATFORM_DEFAULTS } from "./_data";
 
 const watDate = (v: string) =>

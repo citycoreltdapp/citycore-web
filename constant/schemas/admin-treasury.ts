@@ -8,6 +8,8 @@ import {
   resourceIdSchema,
   timestampSchema,
 } from "./common";
+import { transactionStatusSchema } from "./finance";
+import { holdingStatusSchema } from "./portfolio";
 
 const recordedReason = z.string().trim().min(15, "Record a reason of at least 15 characters").max(2000);
 const operationAmount = positiveAmountSchema.refine((v) => v <= 1_000_000_000, "Maximum preview amount is ₦1 billion");
@@ -103,7 +105,8 @@ export const adminWithdrawalSchema = z.object({
   name: z.string(),
   bankLast4: z.string().regex(/^\d{4}$/),
   amount: operationAmount,
-  fee: amountSchema,
+  fee: z.literal(0),
+  status: transactionStatusSchema,
   risk: z.enum(["new-device", "velocity", "clear"]),
   kycVerified: z.boolean(),
   bankVerified: z.boolean(),
@@ -149,7 +152,8 @@ export const disbursementHistorySchema = z.object({
   scheduledDate: date,
   gross: amountSchema,
   net: amountSchema,
-  status: z.enum(["sandbox-success", "pending-checker", "draft"]),
+  status: transactionStatusSchema,
+  holdingStatus: holdingStatusSchema,
 });
 export const adminTreasuryQuerySchema = paginationQuerySchema.extend({
   status: z.enum(["all", "pending", "held", "settled"]).default("all"),

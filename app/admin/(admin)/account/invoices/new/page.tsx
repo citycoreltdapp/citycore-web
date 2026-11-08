@@ -20,8 +20,8 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { CATEGORY_LABELS, TEMPLATE_LABELS } from "../../_data";
-import { InvoiceDocument, openInvoice } from "../../_invoice-preview";
 import { useAccount } from "../../_store";
+import { InvoiceDocument, openInvoice } from "../../page";
 
 const TEMPLATES = [
   { value: "web-design", icon: PaintBoardIcon, hint: "Design and build work" },

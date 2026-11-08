@@ -23,8 +23,8 @@ import { useReviewRequests } from "../_operations/requests";
 import { DISBURSEMENT_HISTORY, RETURN_COHORTS } from "../_operations/treasury-data";
 import { FinanceDate, FinanceNumber, FinanceText, downloadCsv, money, reviewBatch } from "../_operations/treasury-ui";
 import { Notice } from "../_operations/ui";
-import { FilterChips, SegmentBar, StatusPill, formatDate } from "../account/_ui";
-import { DetailList } from "../users/_ui";
+import { FilterChips, SegmentBar, StatusPill, formatDate } from "../account/page";
+import { DetailList } from "../users/page";
 
 const DEFAULTS: ReturnScheduleForm = {
   propertyId: "all",
@@ -39,9 +39,9 @@ const DEFAULTS: ReturnScheduleForm = {
 };
 const REQUEST_KINDS = ["dividend-batch", "principal-batch", "accrual-override", "return-schedule"];
 const HISTORY_STATUS = {
-  "sandbox-success": { tone: "success", label: "Paid in sandbox" },
-  "pending-checker": { tone: "warning", label: "Awaiting checker" },
-  draft: { tone: "muted", label: "Draft" },
+  successful: { tone: "success", label: "Paid" },
+  pending: { tone: "warning", label: "Pending" },
+  failed: { tone: "danger", label: "Failed" },
 } as const;
 const MATURITY_LINES = [
   { name: "Golden Estate", principal: 3_000_000, className: "bg-foreground" },

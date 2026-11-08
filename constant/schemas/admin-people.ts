@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { kycStatusSchema } from "../onboarding";
 import {
   amountSchema,
   dateSchema,
@@ -11,21 +12,22 @@ import {
 } from "./common";
 
 export const investorStatusSchema = z.enum(["active", "suspended", "blacklisted"]);
-export const kycReviewStatusSchema = z.enum(["pending", "approved", "rejected", "escalated"]);
 export const staffRoleSchema = z.enum(["super-admin", "compliance", "finance", "property-manager"]);
 export const adminInvestorSchema = z.object({
   id: resourceIdSchema,
-  name: z.string().min(1),
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
   email: z.email(),
   phone: z.string().min(1),
   joinedAt: dateSchema,
   status: investorStatusSchema,
-  kycStatus: kycReviewStatusSchema,
+  kycStatus: kycStatusSchema,
   tier: z.number().int().min(1).max(3),
   investmentCount: z.number().int().nonnegative(),
   principal: amountSchema,
   yield: amountSchema,
-  wallet: amountSchema,
+  balance: amountSchema,
+  pendingWithdrawals: amountSchema,
   units: z.number().int().nonnegative(),
 });
 export const staffMemberSchema = z.object({
@@ -41,7 +43,7 @@ export const kycCaseSchema = z.object({
   id: resourceIdSchema,
   investorId: resourceIdSchema,
   submittedAt: timestampSchema,
-  status: kycReviewStatusSchema,
+  status: kycStatusSchema,
   tier: z.number().int().min(1).max(3),
   reviewerId: resourceIdSchema,
   birthYear: z.number().int().min(1900).max(2100),
@@ -103,6 +105,11 @@ export const kycDecisionFormSchema = z
     if (value.decision !== "approve" && value.message.length < 15)
       ctx.addIssue({ code: "custom", path: ["message"], message: "Explain what the applicant needs to provide" });
   });
+export const investorKycAfterDecision = {
+  approve: "verified",
+  reject: "actionRequired",
+  "request-information": "actionRequired",
+} as const satisfies Record<z.infer<typeof kycDecisionFormSchema>["decision"], z.infer<typeof kycStatusSchema>>;
 export const kycDecisionRequestSchema = kycDecisionFormSchema
   .safeExtend({ caseId: resourceIdSchema, version: z.number().int().nonnegative(), idempotencyKey: z.uuid() })
   .strict();
@@ -132,7 +139,7 @@ export const adminPeopleQuerySchema = paginationQuerySchema.extend({
 export const adminInvestorsResponseSchema = paginatedSchema(adminInvestorSchema);
 export const adminKycQuerySchema = paginationQuerySchema.extend({
   search: searchSchema.optional(),
-  status: kycReviewStatusSchema.optional(),
+  status: kycStatusSchema.optional(),
 });
 export const adminKycResponseSchema = paginatedSchema(kycCaseSchema);
 export const adminStaffResponseSchema = z.array(staffMemberSchema);

@@ -41,9 +41,9 @@ import { FinanceText } from "../_operations/treasury-ui";
 import { Notice } from "../_operations/ui";
 import { usePreviewState } from "../_operations/use-preview-state";
 import { SUPPORT_DEFAULTS } from "../_operations/workspace-data";
-import { FilterChips, StatusPill, formatDate, formatTime } from "../account/_ui";
-import { ageLabel } from "../kyc/_ui";
-import { Initials } from "../users/_ui";
+import { FilterChips, StatusPill, formatDate, formatTime } from "../account/page";
+import { ageLabel } from "../kyc/page";
+import { Initials } from "../users/page";
 
 type Attachment = z.infer<typeof supportAttachmentSchema>;
 
@@ -156,7 +156,7 @@ const CATEGORY_LABEL: Record<Ticket["category"], string> = {
 const LINKED: Record<string, [string, string][]> = {
   "T-208": [
     ["Recipient", "Ada Okafor · ••2048"],
-    ["Requested debit", "₦100,050 incl. ₦50 fee"],
+    ["Requested debit", "₦100,000 · no fee"],
     ["Transaction state", "Failed · in reconciliation"],
   ],
 };

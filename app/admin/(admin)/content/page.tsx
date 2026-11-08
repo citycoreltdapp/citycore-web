@@ -38,10 +38,9 @@ import { FinanceDate, FinanceNumber, FinanceText } from "../_operations/treasury
 import { Notice } from "../_operations/ui";
 import { usePreviewState } from "../_operations/use-preview-state";
 import { CONTENT_DEFAULTS, LEGAL_DOCUMENTS, RECOMMENDATION_AUDIT, SIGNED_AUDIT } from "../_operations/workspace-data";
-import { FilterChips, SegmentBar, StatusPill, type Tone, formatDate, formatTime } from "../account/_ui";
-import { CheckMark } from "../kyc/_ui";
-import { DetailList } from "../users/_ui";
-import { CardHeader, type Reviews, Section } from "./_ui";
+import { FilterChips, SegmentBar, StatusPill, type Tone, formatDate, formatTime } from "../account/page";
+import { CheckMark } from "../kyc/page";
+import { DetailList } from "../users/page";
 
 type State = z.infer<typeof adminContentStateSchema>;
 const WEIGHTS = [
@@ -739,5 +738,33 @@ export default function ContentPage() {
         </>
       )}
     </>
+  );
+}
+
+export type Reviews = ReturnType<typeof useReviewRequests>;
+
+export function CardHeader({ title, note, children }: { title: string; note?: string; children?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2 className="text-base font-semibold">{title}</h2>
+        {note && <p className="text-xs text-muted-foreground">{note}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+export function Section({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-4 border-t border-border p-5 first:border-none">
+      <h3 className="flex items-center gap-2.5 text-sm font-semibold">
+        <span className="flex size-6 items-center justify-center rounded-full bg-foreground text-xs text-background tabular-nums">
+          {step}
+        </span>
+        {title}
+      </h3>
+      {children}
+    </section>
   );
 }

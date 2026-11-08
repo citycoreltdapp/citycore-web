@@ -6,32 +6,24 @@ import { DataTable } from "@/components/primitives/data-table";
 import { MultiAreaChart } from "@/components/primitives/multi-area-chart";
 import { SearchField } from "@/components/primitives/search-field";
 import { SelectField } from "@/components/primitives/select-field";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { type AdminInvestor } from "@/constant/schemas/admin-people";
-import { ArrowRight01Icon, Download04Icon, SecurityCheckIcon } from "@hugeicons/core-free-icons";
+import { ArrowLeft01Icon, ArrowRight01Icon, Download04Icon, SecurityCheckIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { cn } from "cn";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { CUSTOMER_HISTORY, INVESTORS, STAFF } from "../_operations/data";
+import { CUSTOMER_HISTORY, INVESTORS, ROLE_ITEMS, STAFF } from "../_operations/data";
 import { money } from "../account/_data";
-import { FilterChips, SegmentBar, StatusPill, downloadCsv, formatDate, toneBar, toneDot } from "../account/_ui";
-import {
-  ACCESS_TONES,
-  ACCOUNT_TONES,
-  Initials,
-  InvestorSheet,
-  KYC_TONES,
-  PersonCell,
-  portfolio,
-  roleLabel,
-} from "./_ui";
+import { FilterChips, SegmentBar, StatusPill, downloadCsv, formatDate, toneBar, toneDot } from "../account/page";
 
 type KycFilter = "all" | AdminInvestor["kycStatus"];
-const KYC_FILTERS = ["all", "pending", "escalated", "approved", "rejected"] as const;
+const KYC_FILTERS = ["all", "notStarted", "pending", "verified", "actionRequired"] as const;
 const ACCOUNT_STATUSES = ["active", "suspended", "blacklisted"] as const;
 const countBy = <K extends keyof AdminInvestor>(key: K, value: AdminInvestor[K]) =>
   INVESTORS.filter((investor) => investor[key] === value).length;
@@ -40,7 +32,7 @@ const columns: ColumnDef<AdminInvestor>[] = [
   {
     accessorKey: "name",
     header: "Investor",
-    cell: ({ row }) => <PersonCell name={row.original.name} detail={row.original.email} />,
+    cell: ({ row }) => <PersonCell name={investorName(row.original)} detail={row.original.email} />,
   },
   {
     accessorKey: "id",
@@ -68,7 +60,9 @@ const columns: ColumnDef<AdminInvestor>[] = [
   {
     accessorKey: "kycStatus",
     header: "KYC",
-    cell: ({ row }) => <StatusPill tone={KYC_TONES[row.original.kycStatus]}>{row.original.kycStatus}</StatusPill>,
+    cell: ({ row }) => (
+      <StatusPill tone={KYC_TONES[row.original.kycStatus]}>{KYC_LABELS[row.original.kycStatus]}</StatusPill>
+    ),
   },
   {
     accessorKey: "status",
@@ -198,11 +192,13 @@ function VerificationCard() {
 }
 
 function KycQueueCard() {
-  const groups = (["approved", "pending", "escalated", "rejected"] as const).map((status) => ({
+  const groups = (["verified", "pending", "actionRequired", "notStarted"] as const).map((status) => ({
     status,
     count: countBy("kycStatus", status),
   }));
-  const queue = INVESTORS.filter((investor) => investor.kycStatus === "pending" || investor.kycStatus === "escalated");
+  const queue = INVESTORS.filter(
+    (investor) => investor.kycStatus === "pending" || investor.kycStatus === "actionRequired"
+  );
   return (
     <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
       <div className="flex items-center justify-between gap-3">
@@ -219,8 +215,8 @@ function KycQueueCard() {
         <p className="text-xs text-muted-foreground">Awaiting a decision</p>
         <p className="mt-1 text-3xl font-light tabular-nums">{queue.length}</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          {countBy("kycStatus", "escalated")} escalated · {countBy("kycStatus", "approved")} of {INVESTORS.length}{" "}
-          verified
+          {countBy("kycStatus", "actionRequired")} need action · {countBy("kycStatus", "verified")} of{" "}
+          {INVESTORS.length} verified
         </p>
       </div>
       <div className="flex flex-col gap-3">
@@ -249,12 +245,12 @@ function KycQueueCard() {
               href={`/kyc/review?investor=${encodeURIComponent(investor.id)}`}
               className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors outline-none hover:bg-muted/60 focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Initials name={investor.name} size="sm" />
+              <Initials name={investorName(investor)} size="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{investor.name}</span>
+                <span className="block truncate text-sm font-semibold">{investorName(investor)}</span>
                 <span className="block text-xs text-muted-foreground">Tier {investor.tier}</span>
               </span>
-              <StatusPill tone={KYC_TONES[investor.kycStatus]}>{investor.kycStatus}</StatusPill>
+              <StatusPill tone={KYC_TONES[investor.kycStatus]}>{KYC_LABELS[investor.kycStatus]}</StatusPill>
             </Link>
           </li>
         ))}
@@ -306,10 +302,10 @@ export default function UsersOverview() {
 
   const term = search.trim().toLowerCase();
   const rows = INVESTORS.filter((row) => kyc === "all" || row.kycStatus === kyc)
-    .filter((row) => !term || `${row.name} ${row.id} ${row.email}`.toLowerCase().includes(term))
+    .filter((row) => !term || `${investorName(row)} ${row.id} ${row.email}`.toLowerCase().includes(term))
     .toSorted((a, b) => {
       if (sort === "portfolio") return portfolio(b) - portfolio(a);
-      if (sort === "name") return a.name.localeCompare(b.name);
+      if (sort === "name") return investorName(a).localeCompare(investorName(b));
       return b.joinedAt.localeCompare(a.joinedAt);
     });
 
@@ -319,7 +315,7 @@ export default function UsersOverview() {
       ["Reference", "Name", "Email", "Phone", "Joined", "Account", "KYC", "Tier", "Investments", "Portfolio"],
       rows.map((r) => [
         r.id,
-        r.name,
+        investorName(r),
         r.email,
         r.phone,
         formatDate(r.joinedAt),
@@ -383,7 +379,7 @@ export default function UsersOverview() {
             onChange={setKyc}
             options={KYC_FILTERS.map((value) => ({
               value,
-              label: value === "all" ? "All" : value[0].toUpperCase() + value.slice(1),
+              label: value === "all" ? "All" : KYC_LABELS[value],
               count: value === "all" ? INVESTORS.length : countBy("kycStatus", value),
             }))}
           />
@@ -433,5 +429,150 @@ export default function UsersOverview() {
 
       <InvestorSheet investor={selected} onClose={() => setSelected(null)} />
     </>
+  );
+}
+
+export const ACCOUNT_TONES = { active: "success", suspended: "warning", blacklisted: "danger" } as const;
+export const KYC_TONES = {
+  notStarted: "muted",
+  pending: "warning",
+  verified: "success",
+  actionRequired: "danger",
+} as const;
+export const KYC_LABELS = {
+  notStarted: "Not started",
+  pending: "Pending",
+  verified: "Verified",
+  actionRequired: "Action required",
+} as const;
+export const investorName = (investor: Pick<AdminInvestor, "firstName" | "lastName">) =>
+  `${investor.firstName} ${investor.lastName}`;
+export const ACCESS_TONES = { active: "success", blocked: "warning", revoked: "danger" } as const;
+
+export const roleLabel = (role: string) => ROLE_ITEMS.find((item) => item.value === role)?.label ?? role;
+export const portfolio = (investor: AdminInvestor) => investor.principal + investor.yield;
+
+export function Initials({
+  name,
+  size = "default",
+  className,
+}: {
+  name: string;
+  size?: "default" | "sm" | "lg";
+  className?: string;
+}) {
+  const letters = name
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("");
+  return (
+    <Avatar size={size} className={className}>
+      <AvatarFallback className="bg-accent/20 text-xs font-semibold text-foreground">{letters}</AvatarFallback>
+    </Avatar>
+  );
+}
+
+export function PersonCell({ name, detail }: { name: string; detail: string }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <Initials name={name} />
+      <div className="min-w-0">
+        <p className="truncate font-semibold text-foreground">{name}</p>
+        <p className="truncate text-xs">{detail}</p>
+      </div>
+    </div>
+  );
+}
+
+export function BackLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+    >
+      <HugeiconsIcon icon={ArrowLeft01Icon} aria-hidden className="size-4" />
+      {children}
+    </Link>
+  );
+}
+
+/** Label and value rows separated by hairlines. */
+export function DetailList({ rows, className }: { rows: [string, React.ReactNode][]; className?: string }) {
+  return (
+    <dl className={cn("flex flex-col text-sm", className)}>
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex justify-between gap-4 border-b border-border py-3 last:border-none">
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="truncate text-right font-semibold tabular-nums">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Quick look at an investor from a table row. The full profile lives on the management page. */
+export function InvestorSheet({ investor, onClose }: { investor: AdminInvestor | null; onClose: () => void }) {
+  return (
+    <Sheet open={!!investor} onOpenChange={(open) => !open && onClose()}>
+      <SheetContent className="w-full gap-0 p-0 sm:max-w-md">
+        {investor && (
+          <>
+            <SheetHeader className="gap-1 border-b border-border p-6">
+              <Initials name={investorName(investor)} size="lg" className="mb-3 size-12" />
+              <SheetTitle className="text-base font-semibold">{investorName(investor)}</SheetTitle>
+              <SheetDescription>
+                {investor.id} · {investor.email}
+              </SheetDescription>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <StatusPill tone={ACCOUNT_TONES[investor.status]}>{investor.status}</StatusPill>
+                <StatusPill tone={KYC_TONES[investor.kycStatus]}>KYC {KYC_LABELS[investor.kycStatus]}</StatusPill>
+              </div>
+            </SheetHeader>
+
+            <div className="flex flex-col gap-3 p-6">
+              <p className="text-xs text-muted-foreground">Portfolio value</p>
+              <p className="text-3xl font-light tabular-nums">{money(portfolio(investor))}</p>
+              <SegmentBar
+                className="bg-muted"
+                parts={[
+                  { key: "principal", value: investor.principal, className: "bg-foreground" },
+                  { key: "yield", value: investor.yield, className: "bg-accent" },
+                ]}
+              />
+              <DetailList
+                rows={[
+                  ["Principal", money(investor.principal)],
+                  ["Accrued yield", money(investor.yield)],
+                  ["Wallet", money(investor.balance)],
+                  ["Holdings", `${investor.units} units · ${investor.investmentCount} investments`],
+                  ["KYC tier", `Tier ${investor.tier}`],
+                  ["Phone", investor.phone],
+                  ["Joined", formatDate(investor.joinedAt)],
+                ]}
+              />
+            </div>
+
+            <div className="mt-auto flex flex-wrap gap-2 border-t border-border p-6">
+              <Button
+                variant="outline"
+                className="flex-1 rounded-full"
+                nativeButton={false}
+                render={<Link href={`/kyc/review?investor=${encodeURIComponent(investor.id)}`} />}
+              >
+                KYC case
+              </Button>
+              <Button
+                className="flex-1 rounded-full"
+                nativeButton={false}
+                render={<Link href={`/users/management?investor=${encodeURIComponent(investor.id)}`} />}
+              >
+                Open profile
+              </Button>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
   );
 }
