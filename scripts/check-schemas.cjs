@@ -219,6 +219,20 @@ const roleRequest = {
   approverId: "staff-zainab",
   idempotencyKey: uuid,
 };
+accept(s.staffInviteFormSchema, {
+  name: "Seyi Adeyemi",
+  email: "seyi@citycore.example",
+  role: "finance",
+  reason: "Finance needs another reviewer for withdrawal batches",
+  approverId: "staff-zainab",
+});
+reject(s.staffInviteFormSchema, {
+  name: "Seyi Adeyemi",
+  email: "not-an-email",
+  role: "finance",
+  reason: "Finance needs another reviewer for withdrawal batches",
+  approverId: "staff-zainab",
+});
 accept(s.roleChangeRequestSchema, roleRequest);
 reject(s.roleChangeRequestSchema, { ...roleRequest, approverId: "staff-nneka" });
 reject(s.roleChangeRequestSchema, { ...roleRequest, approverId: "staff-tunde" });

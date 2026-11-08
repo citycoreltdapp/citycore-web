@@ -81,6 +81,13 @@ export const statusChangeRequestSchema = statusChangeFormSchema
         message: `Type ${value.status.toUpperCase()} to confirm`,
       });
   });
+export const staffInviteFormSchema = z.object({
+  name: z.string().trim().min(1, "Enter their name").max(80),
+  email: z.email(),
+  role: staffRoleSchema,
+  reason: z.string().trim().min(15, "Explain why this person needs access").max(2000),
+  approverId: resourceIdSchema,
+});
 export const roleChangeFormSchema = z.object({
   staffId: resourceIdSchema,
   role: staffRoleSchema,
@@ -149,6 +156,7 @@ export const adminReviewRequestSchema = z.object({
     "status",
     "role",
     "revoke",
+    "invite",
     "kyc-decision",
     "kyc-override",
     "permissions",
@@ -181,6 +189,7 @@ export type KycCase = z.infer<typeof kycCaseSchema>;
 export type AdminReviewRequest = z.infer<typeof adminReviewRequestSchema>;
 export type StatusChangeForm = z.infer<typeof statusChangeFormSchema>;
 export type RoleChangeForm = z.infer<typeof roleChangeFormSchema>;
+export type StaffInviteForm = z.infer<typeof staffInviteFormSchema>;
 export type KycDecisionForm = z.infer<typeof kycDecisionFormSchema>;
 
 export const adminPermissionSchema = z.enum([

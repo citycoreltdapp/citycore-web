@@ -12,18 +12,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   type PermissionChangeForm,
   type RoleChangeForm,
+  type StaffInviteForm,
   type StaffMember,
   permissionChangeFormSchema,
   revokeStaffAccessRequestSchema,
   roleChangeFormSchema,
   roleChangeRequestSchema,
+  staffInviteFormSchema,
   staffSignInSchema,
 } from "@/constant/schemas/admin-people";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Add01Icon, ArrowRight01Icon, Download04Icon } from "@hugeicons/core-free-icons";
+import { Add01Icon, ArrowRight01Icon, Download04Icon, Mail01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 
 import { PERMISSIONS, ROLE_ITEMS, STAFF } from "../../_operations/data";
 import { useReviewRequests } from "../../_operations/requests";
@@ -32,7 +35,7 @@ import { StatusPill, formatDate } from "../../account/page";
 import { ACCESS_TONES, BackLink, DetailList, Initials, roleLabel } from "../page";
 
 const ACTOR = "staff-nneka";
-const ACCESS_KINDS = ["role", "revoke", "permissions"];
+const ACCESS_KINDS = ["role", "revoke", "permissions", "invite"];
 const APPROVERS = STAFF.filter((s) => s.role === "super-admin" && s.id !== ACTOR);
 
 function exportReview() {
@@ -137,6 +140,69 @@ function PermissionRequest({ onSubmit }: { onSubmit: (values: PermissionChangeFo
       </Notice>
       <Button type="submit" className="w-full rounded-full">
         Request permission review
+      </Button>
+    </form>
+  );
+}
+
+function InviteMember({ onSubmit }: { onSubmit: (values: StaffInviteForm) => void }) {
+  const form = useForm<StaffInviteForm>({
+    resolver: zodResolver(staffInviteFormSchema),
+    defaultValues: { name: "", email: "", role: "property-manager", reason: "", approverId: "staff-zainab" },
+  });
+  return (
+    <form className="space-y-4" noValidate onSubmit={form.handleSubmit(onSubmit)}>
+      <Controller
+        name="name"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <TextField {...field} id="invite-name" label="Name" error={fieldState.error?.message} />
+        )}
+      />
+      <Controller
+        name="email"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <TextField
+            {...field}
+            id="invite-email"
+            label="Work email"
+            type="email"
+            autoComplete="off"
+            error={fieldState.error?.message}
+          />
+        )}
+      />
+      <Controller
+        name="role"
+        control={form.control}
+        render={({ field }) => <SelectField {...field} id="invite-role" label="Role" items={ROLE_ITEMS} />}
+      />
+      <Controller
+        name="reason"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <TextAreaField {...field} id="invite-reason" label="Reason" error={fieldState.error?.message} />
+        )}
+      />
+      <Controller
+        name="approverId"
+        control={form.control}
+        render={({ field, fieldState }) => (
+          <SelectField
+            {...field}
+            id="invite-approver"
+            label="Independent approver"
+            error={fieldState.error?.message}
+            items={APPROVERS.map((s) => ({ value: s.id, label: s.name }))}
+          />
+        )}
+      />
+      <Notice>
+        No email is sent from this preview. A Super Admin still has to approve it, and the new person signs in with 2FA.
+      </Notice>
+      <Button type="submit" className="w-full rounded-full">
+        Save invite
       </Button>
     </form>
   );
@@ -359,6 +425,35 @@ export default function StaffAccess() {
     });
   });
 
+  const invites = accessRequests.filter((request) => request.kind === "invite");
+
+  const openInvite = () =>
+    AppModal.open({
+      title: "Invite a staff member",
+      description: "Goes to an independent Super Admin",
+      content: (
+        <InviteMember
+          onSubmit={(values) => {
+            const email = values.email.trim().toLowerCase();
+            if (STAFF.some((staff) => staff.email.toLowerCase() === email)) {
+              toast.error("That person is already on the team");
+              return;
+            }
+            if (
+              submit({
+                kind: "invite",
+                subjectId: email,
+                summary: `Invite ${values.name} as ${roleLabel(values.role)}`,
+                reason: values.reason,
+                details: { name: values.name, email, role: values.role, approverId: values.approverId },
+              })
+            )
+              AppModal.close();
+          }}
+        />
+      ),
+    });
+
   const openPermissionRequest = () =>
     AppModal.open({
       title: "Request permission change",
@@ -398,9 +493,18 @@ export default function StaffAccess() {
             <HugeiconsIcon icon={Download04Icon} aria-hidden />
             Export review
           </Button>
-          <Button className="h-10 rounded-full px-4" disabled={!ready} onClick={openPermissionRequest}>
+          <Button
+            variant="outline"
+            className="h-10 rounded-full px-4"
+            disabled={!ready}
+            onClick={openPermissionRequest}
+          >
             <HugeiconsIcon icon={Add01Icon} aria-hidden />
             Permission change
+          </Button>
+          <Button className="h-10 rounded-full px-4" disabled={!ready} onClick={openInvite}>
+            <HugeiconsIcon icon={Mail01Icon} aria-hidden />
+            Invite member
           </Button>
         </div>
       </header>
@@ -442,6 +546,22 @@ export default function StaffAccess() {
               <p className="text-xs text-muted-foreground">Select someone to change their role or access</p>
             </div>
             <TeamList selectedId={selectedId} onSelect={pickStaff} />
+            {invites.length > 0 ? (
+              <ul className="flex flex-col border-t border-border">
+                {invites.map((invite) => (
+                  <li key={invite.id} className="flex flex-wrap items-center gap-3 py-2.5">
+                    <Initials name={String(invite.details.name ?? "New")} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{String(invite.details.name)}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {String(invite.details.email)} · {roleLabel(String(invite.details.role ?? ""))}
+                      </span>
+                    </span>
+                    <StatusPill tone="warning">Invited</StatusPill>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
           </Card>
 
           <Card className="gap-4 rounded-2xl px-5 py-5 ring-foreground/8">
