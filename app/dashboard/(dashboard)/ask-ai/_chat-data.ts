@@ -1,7 +1,8 @@
 import type { ChatAnswer, Conversation } from "@/constant/schemas/ai";
 
-import { HOLDINGS } from "../investments/_data";
-import { INVESTMENTS, WALLET_BALANCE, naira } from "../marketplace/_data";
+import { HOLDINGS, accruedYield } from "../investments/_data";
+import { PROPERTIES, naira } from "../marketplace/page";
+import { WALLET } from "../wallet/_data";
 
 export { conversationSchema, chatStoreSchema } from "@/constant/schemas/ai";
 
@@ -31,7 +32,7 @@ export const STARTERS = [
   },
   {
     title: "Compare two offerings",
-    question: "Compare Golden Estate and Silver City",
+    question: "Compare Golden Estate and Palm Court",
     description: "Unit prices, terms and projected returns",
     topic: "comparison",
   },
@@ -66,7 +67,7 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
       ],
       source: "CityCore · illustrative market outlook",
     };
-  const topic = /compare|golden|silver|offering|marketplace/.test(text)
+  const topic = /compare|golden|palm|offering|marketplace/.test(text)
     ? "comparison"
     : /wallet|fund|balance|deposit|withdraw/.test(text)
       ? "wallet"
@@ -78,18 +79,21 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
             ? previousTopic
             : "help";
   if (topic === "portfolio") {
-    const principal = HOLDINGS.reduce((sum, h) => sum + h.principal, 0),
-      yieldValue = HOLDINGS.reduce((sum, h) => sum + h.accruedYield, 0);
+    const active = HOLDINGS.filter((h) => h.status === "active");
+    const principal = active.reduce((sum, h) => sum + h.amountInvested, 0),
+      yieldValue = active.reduce((sum, h) => sum + accruedYield(h), 0);
     return {
       topic,
       title: "Your portfolio, at a glance",
-      text: `Your sample portfolio contains ${HOLDINGS.length} active holdings with ${naira(principal)} invested principal and ${naira(yieldValue)} accrued yield.`,
-      points: HOLDINGS.map(
-        (h) =>
-          `${INVESTMENTS.find((i) => i.id === h.investmentId)!.name}: ${h.units} units · ${naira(h.principal)} principal · ${naira(h.accruedYield)} accrued yield.`
-      ).concat(
-        `Combined sample value: ${naira(principal + yieldValue)}. These are illustrative records, not live account balances.`
-      ),
+      text: `Your sample portfolio contains ${active.length} active holdings with ${naira(principal)} invested principal and ${naira(yieldValue)} accrued yield.`,
+      points: active
+        .map(
+          (h) =>
+            `${h.property.name}: ${h.units} units · ${naira(h.amountInvested)} invested · ${naira(accruedYield(h))} yield so far.`
+        )
+        .concat(
+          `Combined sample value: ${naira(principal + yieldValue)}. These are illustrative records, not live account balances.`
+        ),
       links: [
         { label: "Open my investments", href: "/investments" },
         { label: "Explore offerings", href: "/marketplace" },
@@ -100,12 +104,12 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
   if (topic === "comparison")
     return {
       topic,
-      title: "Golden Estate and Silver City",
-      text: "Both sample offerings have a 12-month term. The entry price and target annual return differ.",
-      points: INVESTMENTS.slice(0, 2)
+      title: "Golden Estate and Palm Court",
+      text: "The two sample offerings differ in entry price, target annual return and term.",
+      points: PROPERTIES.slice(0, 2)
         .map(
           (i) =>
-            `${i.name}: ${naira(i.unitPrice)} per unit · ${i.annualRoi}% target simple annual ROI · ${i.tenure}-month term.`
+            `${i.name}: ${naira(i.unitPrice)} per unit · ${i.targetRoi}% target simple annual ROI · ${i.tenureMonths}-month term.`
         )
         .concat(
           "Target returns are projections, not guarantees. Review the prospectus, allocation terms and risk disclosures; capital is at risk."
@@ -120,7 +124,7 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
     return {
       topic,
       title: "Your wallet and next steps",
-      text: `The wallet preview shows ${naira(WALLET_BALANCE)} available. Funding and withdrawal controls are available to explore.`,
+      text: `The wallet preview shows ${naira(WALLET.balance)} available. Funding and withdrawal controls are available to explore.`,
       points: [
         "Open Wallet to review the available funding methods and recent payments.",
         "Review withdrawal details before proceeding with a live service.",
@@ -145,7 +149,7 @@ export function createWorkspaceAnswer(question: string, previousTopic?: ChatAnsw
   return {
     topic: "help",
     title: "Let’s narrow that down",
-    text: "I can help you explore the portfolio, compare Golden Estate and Silver City, explain the wallet or find security settings.",
+    text: "I can help you explore the portfolio, compare Golden Estate and Palm Court, explain the wallet or find security settings.",
     points: [
       "This is a workspace preview with prepared responses based on sample account data. A live AI service has not been connected.",
       "Try one of the suggested questions, or use the Help Center for product guides.",

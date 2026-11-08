@@ -2,6 +2,7 @@
 export * from "./schemas/common";
 export * from "./schemas/dashboard";
 export * from "./schemas/marketplace";
+export * from "./schemas/referrals";
 export * from "./schemas/portfolio";
 export * from "./schemas/settings";
 export * from "./schemas/finance";

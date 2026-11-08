@@ -1,33 +1,30 @@
 import { z } from "zod";
 
-// ponytail: mock figures from the Figma frame. The server must check the balance and fee again when the backend exists.
-export const AVAILABLE_BALANCE = 1250000;
-export const TRANSFER_FEE = 50;
+import { transactionPinSchema } from "./schemas/common";
+import { MINIMUM_WITHDRAWAL } from "./schemas/finance";
 
-export const BANK_ACCOUNTS = [
-  { value: "demo-2048", label: "Demo Bank •••• 2048" },
-  { value: "sandbox-7731", label: "Sandbox MFB •••• 7731" },
-];
-export const VERIFIED_ACCOUNT_NAME = "Ada Okafor";
+// Withdrawals are free in the app; the server still has to check the balance and fee again.
+export const WITHDRAWAL_FEE = 0;
 
 export const SETTLEMENT_STEPS = ["Security checks", "Bank submission", "Settlement"];
 
 export const formatNaira = (amount: number) => `₦${amount.toLocaleString("en-US")}`;
 
-export const withdrawalDetailsSchema = z.object({
-  bankAccount: z.string().min(1, "Choose a bank account"),
-  amount: z
-    .number({ error: "Enter an amount" })
-    .positive("Enter an amount")
-    .max(
-      AVAILABLE_BALANCE - TRANSFER_FEE,
-      `The most you can withdraw is ${formatNaira(AVAILABLE_BALANCE - TRANSFER_FEE)}`
-    ),
-});
+/** Same rules and messages as the app's withdraw screen, for the balance the wallet reports. */
+export const withdrawalDetailsSchema = (balance: number) =>
+  z.object({
+    amount: z
+      .number({ error: "Enter an amount" })
+      .positive("Enter an amount")
+      .min(MINIMUM_WITHDRAWAL, `Minimum withdrawal is ${formatNaira(MINIMUM_WITHDRAWAL)}`)
+      .max(balance, "Amount is more than your balance"),
+  });
 
-export const withdrawalSchema = withdrawalDetailsSchema.extend({
-  pin: z.string().regex(/^\d{4}$/, "Enter your 4-digit PIN"),
-  authenticatorCode: z.string().regex(/^(\d{6})?$/, "Enter all 6 digits, or leave this empty"),
-});
+export const withdrawalSchema = (balance: number) =>
+  withdrawalDetailsSchema(balance).extend({
+    pin: transactionPinSchema,
+    // Web-only: the app has no authenticator step yet, so the field is optional on the request.
+    authenticatorCode: z.string().regex(/^(\d{6})?$/, "Enter all 6 digits, or leave this empty"),
+  });
 
-export type WithdrawalFormData = z.infer<typeof withdrawalSchema>;
+export type WithdrawalFormData = z.infer<ReturnType<typeof withdrawalSchema>>;

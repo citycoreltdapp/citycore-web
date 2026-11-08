@@ -7,8 +7,10 @@ import { PasswordField } from "@/components/primitives/password-field";
 import { TextField } from "@/components/primitives/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { type SignUpFormData, signUpSchema } from "@/constant/auth";
+import { ReferralCodeError, resolveReferralCode } from "@/lib/referrals";
+import { setReferredBy } from "@/lib/referred-by";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail01Icon, UserIcon } from "@hugeicons/core-free-icons";
+import { Mail01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -24,13 +26,12 @@ function SignUpForm() {
   const form = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      referrer: searchParams.get("ref") ?? "",
+      referrer: searchParams.get("ref")?.toUpperCase() ?? "",
       email: "",
       password: "",
       confirmPassword: "",
       terms: false,
     },
-    // The submit button stays disabled until the form is valid, so errors show as each field is left.
     mode: "onTouched",
   });
 
@@ -40,9 +41,20 @@ function SignUpForm() {
     <AuthForm
       title="Get Started Now"
       subtitle="Let’s create your account"
-      // ponytail: no backend yet, call the sign-up API here and use
-      // form.setError("email", { message: "Email is already taken. Please enter another email." }) for a taken email.
-      onSubmit={form.handleSubmit(() => {
+      onSubmit={form.handleSubmit(async ({ referrer: code }) => {
+        let referrer = null;
+        if (code) {
+          try {
+            referrer = await resolveReferralCode(code);
+          } catch (error) {
+            const message =
+              error instanceof ReferralCodeError ? error.message : "Could not check this code. Try again.";
+            form.setError("referrer", { message });
+            return;
+          }
+        }
+        setReferredBy(referrer);
+        if (referrer) toast.success(`Referred by ${referrer.name}`);
         form.reset();
         router.push("/signup/verify");
       })}
@@ -66,11 +78,18 @@ function SignUpForm() {
         render={({ field, fieldState }) => (
           <TextField
             {...field}
+            onChange={(code) => {
+              // A failed lookup is a manual error, which validation alone won't clear.
+              form.clearErrors("referrer");
+              field.onChange(code.toUpperCase());
+            }}
             id="referrer"
-            label="Referrer"
-            placeholder="Referrer ID"
+            label="Referral code (optional)"
+            placeholder="Code of the person who invited you"
             autoComplete="off"
-            icon={<HugeiconsIcon icon={UserIcon} />}
+            autoCapitalize="characters"
+            spellCheck={false}
+            icon={<HugeiconsIcon icon={UserAdd01Icon} />}
             error={fieldState.error?.message}
           />
         )}

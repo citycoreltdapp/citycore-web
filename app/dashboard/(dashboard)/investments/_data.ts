@@ -1,43 +1,63 @@
 import type { Holding } from "@/constant/schemas/portfolio";
 
+import { AS_OF } from "../_data";
+import { findProperty } from "../marketplace/page";
+
 export type { Holding } from "@/constant/schemas/portfolio";
 
-// Illustrative holdings; use portfolio records from the API when it is connected.
-export const HOLDINGS = [
-  {
-    id: "holding-golden",
-    investmentId: "golden-estate",
-    principal: 3_000_000,
-    accruedYield: 390_000,
-    units: 20,
-    elapsedMonths: 8,
-    tenure: 12,
-    status: "active",
-    allocatedAt: "2026-03-01",
-    maturityDate: "2027-03-01",
-  },
-  {
-    id: "holding-silver",
-    investmentId: "silver-city",
-    principal: 2_000_000,
-    accruedYield: 230_000,
-    units: 16,
-    elapsedMonths: 8,
-    tenure: 12,
-    status: "active",
-    allocatedAt: "2026-03-15",
-    maturityDate: "2027-03-15",
-  },
-] as const satisfies readonly Holding[];
-export const PORTFOLIO_HISTORY = [
-  { month: "Jan", value: 4_800_000 },
-  { month: "Feb", value: 4_950_000 },
-  { month: "Mar", value: 5_000_000 },
-  { month: "Apr", value: 5_150_000 },
-  { month: "May", value: 5_090_000 },
-  { month: "Jun", value: 5_240_000 },
-  { month: "Jul", value: 5_300_000 },
-  { month: "Aug", value: 5_410_000 },
-  { month: "Sep", value: 5_490_000 },
-  { month: "Oct", value: 5_620_000 },
+const DAY = 86_400_000;
+const utc = (date: string) => Date.parse(`${date}T00:00:00Z`);
+
+function shiftMonths(date: string, months: number) {
+  const next = new Date(utc(date));
+  next.setUTCMonth(next.getUTCMonth() + months);
+  return next.toISOString().slice(0, 10);
+}
+
+function holding(
+  id: string,
+  propertyId: string,
+  units: number,
+  startedMonthsAgo: number,
+  status: Holding["status"] = "active"
+): Holding {
+  const property = findProperty(propertyId)!;
+  const startDate = shiftMonths(AS_OF, -startedMonthsAgo);
+  return {
+    id,
+    property,
+    units,
+    amountInvested: units * property.unitPrice,
+    startDate,
+    maturityDate: shiftMonths(startDate, property.tenureMonths),
+    status,
+  };
+}
+
+export const HOLDINGS: Holding[] = [
+  holding("h_golden", "golden-estate", 10, 9),
+  holding("h_palm", "palm-court", 8, 10),
+  holding("h_cedar", "cedar-gardens", 15, 8),
+  holding("h_marina", "marina-heights", 5, 14, "matured"),
 ];
+
+const expectedReturn = (item: Holding) =>
+  (item.amountInvested * item.property.targetRoi * item.property.tenureMonths) / 1200;
+
+export const payoutAtMaturity = (item: Holding) => item.amountInvested + expectedReturn(item);
+
+export function progress(item: Holding, asOf = AS_OF) {
+  const total = Math.round((utc(item.maturityDate) - utc(item.startDate)) / DAY);
+  if (item.status === "matured" || total === 0) return 1;
+  const elapsed = Math.min(Math.max(Math.round((utc(asOf) - utc(item.startDate)) / DAY), 0), total);
+  return elapsed / total;
+}
+
+export const accruedYield = (item: Holding, asOf = AS_OF) => expectedReturn(item) * progress(item, asOf);
+
+export function monthsElapsed(item: Holding, asOf = AS_OF) {
+  if (item.status === "matured") return item.property.tenureMonths;
+  const [year, month] = asOf.split("-").map(Number);
+  const [startYear, startMonth] = item.startDate.split("-").map(Number);
+  return Math.min(Math.max((year - startYear) * 12 + month - startMonth, 0), item.property.tenureMonths);
+}

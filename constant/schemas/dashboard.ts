@@ -1,22 +1,26 @@
 import { z } from "zod";
 
-import { amountSchema, currencySchema, timestampSchema } from "./common";
+import { kycStatusSchema } from "../onboarding";
+import { amountSchema, timestampSchema } from "./common";
+import { transactionSchema } from "./finance";
 
-export const dashboardRangeSchema = z.enum(["1H", "1D", "1W", "1M", "1Y"]);
-export const dashboardQuerySchema = z.object({
-  range: dashboardRangeSchema.default("1W"),
-  currency: currencySchema.default("NGN"),
+// Mirrors the mobile `ChartRange` enum; the values double as keys of `portfolioHistory`.
+export const chartRangeSchema = z.enum(["oneMonth", "threeMonths", "sixMonths", "oneYear"]);
+
+/** Mobile `HomeDashboard` (GET /dashboard). Portfolio history points are in millions of naira. */
+export const homeDashboardSchema = z.object({
+  firstName: z.string().min(1),
+  kycStatus: kycStatusSchema,
+  walletBalance: amountSchema,
+  portfolioValue: amountSchema,
+  accruedYield: amountSchema,
+  activeInvestments: z.number().int().nonnegative(),
+  averageYield: z.number().finite().nonnegative(),
+  nextPayout: timestampSchema.nullable(),
+  unreadNotifications: z.number().int().nonnegative().default(0),
+  portfolioHistory: z.partialRecord(chartRangeSchema, z.array(z.number().finite())),
+  recentTransactions: z.array(transactionSchema),
 });
-export const dashboardSummaryResponseSchema = z.object({
-  firstName: z.string(),
-  currency: currencySchema,
-  totalIncome: amountSchema,
-  totalSpending: amountSchema,
-  spendingGoal: amountSchema,
-  totalTransactions: z.number().int().nonnegative(),
-  updatedAt: timestampSchema,
-});
-export const dashboardHistoryResponseSchema = z.array(z.object({ period: z.string(), value: z.number().finite() }));
-export const dashboardTransactionsResponseSchema = z.array(
-  z.object({ id: z.string(), title: z.string(), date: z.string(), medium: z.string(), amount: z.string() })
-);
+
+export type ChartRange = z.infer<typeof chartRangeSchema>;
+export type HomeDashboard = z.infer<typeof homeDashboardSchema>;

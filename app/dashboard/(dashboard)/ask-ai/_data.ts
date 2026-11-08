@@ -1,7 +1,7 @@
 import type { Preferences, RecommendationRecord } from "@/constant/schemas/insights";
 
 import { HOLDINGS } from "../investments/_data";
-import { INVESTMENTS } from "../marketplace/_data";
+import { PROPERTIES, canInvest } from "../marketplace/page";
 
 export type { Preferences, RecommendationRecord } from "@/constant/schemas/insights";
 
@@ -14,18 +14,19 @@ export const DEFAULT_PREFERENCES: Preferences = {
 };
 // Demo matching rules only; replace with the recommendation service when available.
 export function matchInvestments(preferences: Preferences) {
-  return INVESTMENTS.filter(
-    (investment) =>
-      investment.unitPrice <= Number(preferences.budget) &&
-      investment.tenure <= Number(preferences.horizon) &&
-      (preferences.location === "all" || investment.location.endsWith(preferences.location)) &&
-      (preferences.risk !== "conservative" || investment.annualRoi <= 12)
+  return PROPERTIES.filter(
+    (property) =>
+      canInvest(property) &&
+      property.unitPrice <= Number(preferences.budget) &&
+      property.tenureMonths <= Number(preferences.horizon) &&
+      (preferences.location === "all" || property.city === preferences.location) &&
+      (preferences.risk !== "conservative" || property.targetRoi <= 15)
   )
     .toSorted((a, b) => {
       const held = (id: string) =>
-        preferences.portfolio && HOLDINGS.some((holding) => holding.investmentId === id) ? 1 : 0;
+        preferences.portfolio && HOLDINGS.some((holding) => holding.property.id === id) ? 1 : 0;
       const riskScore = (roi: number) => (preferences.risk === "balanced" ? Math.abs(roi - 14) : -roi);
-      return held(a.id) - held(b.id) || riskScore(a.annualRoi) - riskScore(b.annualRoi);
+      return held(a.id) - held(b.id) || riskScore(a.targetRoi) - riskScore(b.targetRoi);
     })
     .slice(0, 2);
 }
@@ -53,14 +54,14 @@ export const RECOMMENDATION_HISTORY: RecommendationRecord[] = [
     id: "history-2",
     date: "15 Oct 2026",
     snapshot: "Balanced · Abuja · ₦300,000",
-    recommendation: "City Lights · demo match",
+    recommendation: "Palm Court · demo match",
     outcome: "Saved",
   },
   {
     id: "history-3",
     date: "08 Oct 2026",
     snapshot: "Conservative · 18 months",
-    recommendation: "Palm Residences · demo match",
+    recommendation: "Cedar Gardens · demo match",
     outcome: "Dismissed",
   },
 ];

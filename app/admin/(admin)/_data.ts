@@ -1,5 +1,5 @@
 // ponytail: mock data from the Figma frames. Replace each export with an API call once the backend exists.
-import type { DashboardNotification } from "@/constant/notifications";
+import { INBOX_AS_OF, type InboxMessage } from "@/constant/notifications";
 import type {
   AdminIncomeExpensePoint,
   AdminRange,
@@ -80,41 +80,35 @@ export const USERS_BY_COUNTRY: AdminUsersByCountry[] = [
   { code: "CN", country: "China", latitude: 35, longitude: 104, users: 280 },
 ];
 
-export const ADMIN_NOTIFICATIONS: DashboardNotification[] = [
+const ADMIN_INBOX: InboxMessage[] = [
   {
-    id: "1",
-    type: "security",
+    id: "kyc-queue",
     title: "KYC submissions waiting",
-    description: "12 new identity submissions are ready for review.",
-    time: "5m",
-    group: "Today",
-    isRead: false,
+    message: "12 new identity submissions are ready for review.",
+    topic: "account",
+    date: "2026-11-08T11:55:00+01:00",
   },
   {
-    id: "2",
-    type: "withdrawal",
+    id: "large-withdrawal",
     title: "Large withdrawal flagged",
-    description: "A ₦4,500,000.00 withdrawal needs a second approval.",
-    time: "1h",
-    group: "Today",
-    isRead: false,
+    message: "A ₦4,500,000.00 withdrawal needs a second approval.",
+    topic: "wallet",
+    date: "2026-11-08T11:00:00+01:00",
   },
   {
-    id: "3",
-    type: "investment",
+    id: "golden-allocation",
     title: "Golden Estate nearly allocated",
-    description: "68% of units are allocated, with 320 left.",
-    time: "3h",
-    group: "Today",
-    isRead: false,
+    message: "68% of units are allocated, with 320 left.",
+    topic: "investments",
+    date: "2026-11-08T09:00:00+01:00",
   },
   {
-    id: "4",
-    type: "deposit",
+    id: "daily-settlement",
     title: "Daily settlement complete",
-    description: "Yesterday's wallet deposits have settled.",
-    time: "1d",
-    group: "Earlier",
-    isRead: true,
+    message: "Yesterday's wallet deposits have settled.",
+    topic: "wallet",
+    date: "2026-11-07T12:00:00+01:00",
   },
 ];
+
+export const ADMIN_NOTIFICATIONS = { messages: ADMIN_INBOX, readIds: ["daily-settlement"], asOf: INBOX_AS_OF };

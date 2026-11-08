@@ -14,6 +14,12 @@ export const amountSchema = z
 export const positiveAmountSchema = amountSchema.refine((value) => value > 0, "Enter an amount greater than zero");
 export const unitsSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 export const searchSchema = z.string().trim().max(200);
+// Same rule as the mobile MockTransactionPin: four digits, and never 0000.
+export const transactionPinSchema = z
+  .string()
+  .regex(/^\d{4}$/, "Enter your 4-digit PIN")
+  .refine((pin) => pin !== "0000", "Choose a different PIN");
+export const idempotencyKeySchema = z.uuid();
 export const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(12),

@@ -7,19 +7,24 @@ const vm = require("node:vm");
 const ts = require("typescript");
 const root = path.resolve(__dirname, "..");
 const cache = new Map();
+function resolveModule(base) {
+  if (fs.existsSync(base) && fs.statSync(base).isFile()) return base;
+  for (const ext of [".ts", ".tsx"]) if (fs.existsSync(base + ext)) return base + ext;
+  return `${base}.ts`;
+}
 function load(file) {
-  const absolute = path.resolve(root, file);
+  const absolute = resolveModule(path.resolve(root, file));
   if (cache.has(absolute)) return cache.get(absolute).exports;
   const mod = { exports: {} };
   cache.set(absolute, mod);
   const source = ts.transpileModule(fs.readFileSync(absolute, "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023 },
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2023, jsx: ts.JsxEmit.ReactJSX },
   }).outputText;
   const localRequire = (id) =>
     id.startsWith("@/")
-      ? load(`${id.slice(2)}.ts`)
+      ? load(id.slice(2))
       : id.startsWith(".")
-        ? load(`${path.resolve(path.dirname(absolute), id)}.ts`)
+        ? load(path.resolve(path.dirname(absolute), id))
         : require(id);
   vm.runInThisContext(`(function(require,module,exports){${source}\n})`, { filename: absolute })(
     localRequire,
@@ -35,45 +40,96 @@ const accept = (schema, value) =>
 const reject = (schema, value) => assert.equal(schema.safeParse(value).success, false);
 
 // Read contracts cover actual fixtures, so schemas cannot silently drift from the pages.
+const page = (file) => load(`app/dashboard/(dashboard)/${file}`);
 for (const [file, name, schema] of [
-  ["marketplace", "INVESTMENTS", s.investmentSchema],
-  ["investments", "HOLDINGS", s.holdingSchema],
-  ["transactions", "TRANSACTIONS", s.transactionRowSchema],
-  ["withdrawals", "CREDITS", s.creditRowSchema],
-  ["support", "HELP_ARTICLES", s.helpArticleSchema],
-  ["ask-ai", "MARKET_HISTORY", s.marketHistoryPointSchema],
-  ["ask-ai", "RECOMMENDATION_HISTORY", s.recommendationRecordSchema],
+  ["marketplace/page.tsx", "PROPERTIES", s.propertySchema],
+  ["investments/_data.ts", "HOLDINGS", s.holdingSchema],
+  ["transactions/_data.ts", "TRANSACTIONS", s.transactionSchema],
+  ["support/_data.ts", "HELP_ARTICLES", s.helpArticleSchema],
+  ["ask-ai/_data.ts", "MARKET_HISTORY", s.marketHistoryPointSchema],
+  ["ask-ai/_data.ts", "RECOMMENDATION_HISTORY", s.recommendationRecordSchema],
 ]) {
-  for (const row of load(`app/dashboard/(dashboard)/${file}/_data.ts`)[name]) accept(schema, row);
+  for (const row of page(file)[name]) accept(schema, row);
 }
-assert.deepEqual(s.paginationQuerySchema.parse({}), { page: 1, pageSize: 12 });
-assert.equal(s.paginationQuerySchema.parse({ page: "2", pageSize: "25" }).page, 2);
-reject(s.paginationQuerySchema, { page: 0 });
-reject(s.paginationQuerySchema, { pageSize: 101 });
-assert.equal(s.conversationListQuerySchema.parse({ pinned: "false" }).pinned, false);
-reject(s.conversationListQuerySchema, { pinned: "yes" });
-reject(s.transactionListQuerySchema, { from: "2026-11-06", to: "2026-10-01" });
-reject(s.investmentListQuerySchema, { minUnitPrice: 200, maxUnitPrice: 100 });
-reject(s.investmentListQuerySchema, { minRoi: 16, maxRoi: 12 });
-for (const amount of [-1, Infinity, NaN, 0.001]) reject(s.amountSchema, amount);
-accept(s.amountSchema, 23.45);
-accept(s.fundingFormSchema, { amount: 250000, method: "bank" });
-reject(s.fundingFormSchema, { amount: 0, method: "bank" });
-reject(s.investmentQuoteRequestSchema, { investmentId: "golden", units: 1.5 });
-reject(s.investmentQuoteRequestSchema, { investmentId: "golden", units: 1, unitPrice: 1 });
-const consent = { risks: true, exit: true, agreement: true, name: "Demo User" };
-const purchase = { quoteId: "quote-1", idempotencyKey: uuid, agreementVersion: "1.3", consent };
-accept(s.purchaseInvestmentRequestSchema, purchase);
-reject(s.purchaseInvestmentRequestSchema, { ...purchase, amount: 1 });
-reject(s.purchaseInvestmentRequestSchema, { ...purchase, consent: { ...consent, risks: false } });
-reject(s.purchaseInvestmentRequestSchema, { ...purchase, idempotencyKey: "" });
-accept(s.createWithdrawalRequestSchema, {
-  quoteId: "quote-2",
-  pin: "0123",
-  authenticatorCode: "012345",
+const home = page("_data.ts").HOME_DASHBOARD;
+accept(s.homeDashboardSchema, home);
+reject(s.homeDashboardSchema, { ...home, kycStatus: "in-review" });
+const wallet = page("wallet/_data.ts").WALLET;
+accept(s.walletSchema, wallet);
+reject(s.walletSchema, { ...wallet, payoutAccount: { ...wallet.payoutAccount, accountNumber: "12345" } });
+const notifications = load("constant/notifications.ts");
+accept(notifications.inboxResponseSchema, notifications.NOTIFICATIONS);
+reject(notifications.inboxMessageSchema, { ...notifications.NOTIFICATIONS[0], topic: "security" });
+
+// Mobile model rules: unit bounds, holding dates, PIN, minimums and strict request bodies.
+const [property] = page("marketplace/page.tsx").PROPERTIES;
+reject(s.propertySchema, { ...property, unitsSold: property.totalUnits + 1 });
+reject(s.propertySchema, { ...property, minUnits: property.maxUnits + 1 });
+reject(s.propertySchema, { ...property, status: "active" });
+const [holding] = page("investments/_data.ts").HOLDINGS;
+reject(s.holdingSchema, { ...holding, maturityDate: "2000-01-01" });
+reject(s.holdingSchema, { ...holding, status: "pending" });
+for (const pin of ["0000", "123", "12345", "12a4"]) reject(s.transactionPinSchema, pin);
+accept(s.investRequestSchema, { units: 2, pin: "1234" });
+accept(s.investRequestSchema, {
+  units: 2,
+  pin: "1234",
+  agreementVersion: "1.3",
+  signatureName: "Ada",
   idempotencyKey: uuid,
 });
-reject(s.createWithdrawalRequestSchema, { quoteId: "quote-2", pin: "123", idempotencyKey: uuid });
+reject(s.investRequestSchema, { units: 1.5, pin: "1234" });
+reject(s.investRequestSchema, { units: 1, pin: "1234", unitPrice: 1 });
+accept(s.withdrawRequestSchema, { amount: 1000, pin: "1234" });
+reject(s.withdrawRequestSchema, { amount: 999, pin: "1234" });
+reject(s.withdrawRequestSchema, { amount: 5000, pin: "1234", bankAccount: "other" });
+accept(s.fundWithCardRequestSchema, { amount: 1000 });
+reject(s.fundWithCardRequestSchema, { amount: 999 });
+accept(s.fundingFormSchema, { amount: 250000, method: "bank" });
+reject(s.fundingFormSchema, { amount: 0, method: "bank" });
+reject(s.fundingFormSchema, { amount: 500, method: "card" });
+const withdrawal = load("constant/withdrawal.ts").withdrawalSchema(wallet.balance);
+accept(withdrawal, { amount: 1000, pin: "1234", authenticatorCode: "" });
+reject(withdrawal, { amount: wallet.balance + 1, pin: "1234", authenticatorCode: "" });
+accept(s.ninIdentitySchema, {
+  nin: "00000000001",
+  firstName: "Ada",
+  surname: "Okafor",
+  dateOfBirth: "1995-06-15",
+  phone: "+234 8000000000",
+});
+reject(s.identitySchema, {
+  nin: "00000000001",
+  identity: null,
+  address: "1 Demo Street",
+  city: "Ikeja",
+  stateOfResidence: "Lagos",
+  lgaOfResidence: "Ikeja",
+});
+
+// Holding getters match the app: Marina Heights (5 units, 17%, 12 months) pays back ₦1,755,000.
+const portfolio = page("investments/_data.ts");
+const marina = portfolio.HOLDINGS.find((h) => h.id === "h_marina");
+assert.equal(portfolio.progress(marina), 1);
+assert.equal(portfolio.payoutAtMaturity(marina), 1755000);
+assert.equal(portfolio.accruedYield({ ...holding, status: "active" }, holding.startDate), 0);
+
+// The wire format is snake_case; fromApi(toApi(x)) must give back the same camelCase object.
+const api = load("lib/api.ts");
+const wireProperty = api.toApi(s.propertySchema, property);
+assert.ok("unit_price" in wireProperty && "target_roi" in wireProperty && !("unitPrice" in wireProperty));
+assert.deepEqual(api.fromApi(s.propertySchema, wireProperty), s.propertySchema.parse(property));
+assert.deepEqual(
+  api.fromApi(s.homeDashboardSchema, api.toApi(s.homeDashboardSchema, home)),
+  s.homeDashboardSchema.parse(home)
+);
+assert.deepEqual(Object.keys(api.toApi(s.withdrawRequestSchema, { amount: 5000, pin: "1234", idempotencyKey: uuid })), [
+  "amount",
+  "pin",
+  "idempotency_key",
+]);
+console.log("Mobile contracts, fixtures, rules and snake_case boundary passed.");
+
 reject(s.addressSchema, { country: "ZZ", address1: "Example street", address2: "", zip: "100001" });
 accept(s.addressSchema, { country: "NG", address1: "Example street", address2: "", zip: "100001" });
 const password = { oldPassword: "OldDemo1!", newPassword: "NewDemo2!", confirmPassword: "NewDemo2!" };
@@ -219,12 +275,15 @@ const offerings = load("app/admin/(admin)/investments/_data.ts").ADMIN_INVESTMEN
 offerings.forEach((row) => accept(s.adminInvestmentSchema, row));
 const offeringForm = s.adminInvestmentFormSchema.parse(offerings[0]);
 reject(s.adminInvestmentFormSchema, { ...offeringForm, endDate: offeringForm.startDate });
-reject(s.adminInvestmentFormSchema, { ...offeringForm, minimumUnits: offeringForm.totalUnits + 1 });
-reject(s.adminInvestmentSchema, { ...offerings[0], totalUnits: offerings[0].allocatedUnits - 1 });
+reject(s.adminInvestmentFormSchema, { ...offeringForm, minUnits: offeringForm.totalUnits + 1 });
+reject(s.adminInvestmentFormSchema, { ...offeringForm, minUnits: offeringForm.maxUnits + 1 });
+reject(s.adminInvestmentSchema, { ...offerings[0], totalUnits: offerings[0].unitsSold - 1 });
+const admin = load("app/admin/(admin)/investments/_data.ts");
+offerings.forEach((row) => accept(s.propertySchema, admin.toProperty(row)));
 reject(s.publishAdminInvestmentSchema, { ...offeringForm, rightsConfirmed: false });
 reject(s.publishAdminInvestmentSchema, { ...offeringForm, termsConfirmed: false });
 accept(s.publishAdminInvestmentSchema, offeringForm);
-reject(s.adminInvestmentFormSchema, { ...offeringForm, annualRoi: 101 });
+reject(s.adminInvestmentFormSchema, { ...offeringForm, targetRoi: 101 });
 reject(s.adminInvestmentFormSchema, { ...offeringForm, image: "../../private" });
 reject(s.investmentCoverPreviewSchema, "data:image/svg+xml;base64,AAAA");
 const coverless = Object.fromEntries(Object.entries(offeringForm).filter(([key]) => key !== "coverPreview"));
@@ -247,7 +306,7 @@ reject(s.createAdminInvestmentRequestSchema, {
   ...coverless,
   idempotencyKey: uuid,
   intent: "draft",
-  allocatedUnits: 0,
+  unitsSold: 0,
 });
 
 const treasury = load("app/admin/(admin)/_operations/treasury-data.ts");

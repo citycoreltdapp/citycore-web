@@ -1,18 +1,10 @@
-import { Suspense } from "react";
+"use client";
 
-import { Skeleton } from "@/components/ui/skeleton";
+import { useParams } from "next/navigation";
 
 import { InvestmentEditor } from "../../_editor";
 
-type Params = Promise<{ id: string }>;
-async function Content({ params }: { params: Params }) {
-  const { id } = await params;
+export default function Page() {
+  const { id } = useParams<{ id: string }>();
   return <InvestmentEditor id={id} />;
-}
-export default function Page({ params }: { params: Params }) {
-  return (
-    <Suspense fallback={<Skeleton className="h-96 rounded-2xl" />}>
-      <Content params={params} />
-    </Suspense>
-  );
 }

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
-import type { DashboardNotification } from "@/constant/notifications";
+import type { InboxMessage } from "@/constant/notifications";
 import { ArrowLeft01Icon, ArrowRight01Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
@@ -49,7 +49,7 @@ function SidebarToggle() {
 }
 
 interface DashboardHeaderProps {
-  notifications?: DashboardNotification[];
+  notifications?: { messages: InboxMessage[]; readIds: string[]; asOf: string };
   /** The items in the avatar menu. */
   accountMenuItems?: React.ReactNode;
 }
@@ -74,7 +74,11 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
 
       <div className="ml-auto flex items-center gap-3">
         <ThemeToggle variant="ghost" className="size-10 rounded-full bg-muted [&_svg]:size-5" />
-        <NotificationsPopover initialNotifications={notifications} />
+        <NotificationsPopover
+          messages={notifications?.messages}
+          initialReadIds={notifications?.readIds}
+          asOf={notifications?.asOf}
+        />
 
         <DropdownMenu>
           <DropdownMenuTrigger

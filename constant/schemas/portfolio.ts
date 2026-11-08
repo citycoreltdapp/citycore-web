@@ -1,50 +1,34 @@
 import { z } from "zod";
 
-import {
-  amountSchema,
-  dateSchema,
-  paginatedSchema,
-  paginationQuerySchema,
-  positiveAmountSchema,
-  resourceIdSchema,
-  unitsSchema,
-} from "./common";
+import { amountSchema, dateSchema, positiveAmountSchema, resourceIdSchema, unitsSchema } from "./common";
+import { propertySchema } from "./marketplace";
 
-export const holdingStatusSchema = z.enum(["active", "matured", "pending"]);
+// Mirrors the mobile `Holding` model (GET /portfolio/holdings, GET /portfolio/holdings/{id}).
+export const holdingStatusSchema = z.enum(["active", "matured"]);
 export const holdingSchema = z
   .object({
     id: resourceIdSchema,
-    investmentId: resourceIdSchema,
-    principal: positiveAmountSchema,
-    accruedYield: amountSchema,
+    property: propertySchema,
     units: unitsSchema,
-    elapsedMonths: z.number().int().nonnegative(),
-    tenure: z.number().int().positive(),
-    status: holdingStatusSchema,
-    allocatedAt: dateSchema,
+    amountInvested: positiveAmountSchema,
+    startDate: dateSchema,
     maturityDate: dateSchema,
+    status: holdingStatusSchema,
   })
-  .refine((v) => v.allocatedAt <= v.maturityDate, {
+  .refine((v) => v.startDate <= v.maturityDate, {
     path: ["maturityDate"],
-    message: "Maturity must follow allocation",
+    message: "Maturity must follow the start date",
   });
-export const holdingListQuerySchema = paginationQuerySchema.extend({
-  status: holdingStatusSchema.optional(),
-  sort: z.enum(["recent", "oldest"]).default("recent"),
-});
-export const holdingListResponseSchema = paginatedSchema(holdingSchema);
-export const portfolioSummaryResponseSchema = z.object({
-  investedPrincipal: amountSchema,
+export const holdingListResponseSchema = z.array(holdingSchema);
+export const holdingParamsSchema = z.object({ id: resourceIdSchema });
+
+// Derived on the client from the holdings list, as the app does; not an endpoint.
+export const portfolioSummarySchema = z.object({
+  invested: amountSchema,
   accruedYield: amountSchema,
-  currentValue: amountSchema,
-  totalUnits: z.number().int().nonnegative(),
-  counts: z.object({
-    active: z.number().int().nonnegative(),
-    matured: z.number().int().nonnegative(),
-    pending: z.number().int().nonnegative(),
-  }),
+  expectedAtMaturity: amountSchema,
 });
-export const portfolioHistoryQuerySchema = z.object({ range: z.enum(["1m", "6m", "ytd", "1y", "all"]).default("ytd") });
-export const portfolioHistoryResponseSchema = z.array(z.object({ date: dateSchema, value: amountSchema }));
+
 export type Holding = z.infer<typeof holdingSchema>;
-export type PortfolioSummary = z.infer<typeof portfolioSummaryResponseSchema>;
+export type HoldingStatus = z.infer<typeof holdingStatusSchema>;
+export type PortfolioSummary = z.infer<typeof portfolioSummarySchema>;

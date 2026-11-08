@@ -5,8 +5,8 @@ import * as React from "react";
 import { ProgressRing } from "@/components/primitives/progress-ring";
 import { Button } from "@/components/ui/button";
 import { ONBOARDING_STEPS } from "@/constant/onboarding";
-import { useVerificationStatus } from "@/lib/verification-status";
-import { ArrowRight02Icon, Cancel01Icon, HourglassIcon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { useKycStatus } from "@/lib/verification-status";
+import { AlertCircleIcon, ArrowRight02Icon, Cancel01Icon, HourglassIcon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import { motion, useReducedMotion } from "motion/react";
@@ -47,12 +47,13 @@ function Steps() {
 
 /** Hangs under the header until the investor's KYC is approved. */
 export function VerificationBanner() {
-  const status = useVerificationStatus();
+  const status = useKycStatus();
   const reduceMotion = useReducedMotion();
   const [dismissed, setDismissed] = React.useState(false);
 
-  if (!status || status === "verified" || (status === "in-review" && dismissed)) return null;
-  const inReview = status === "in-review";
+  if (!status || status === "verified" || (status === "pending" && dismissed)) return null;
+  const inReview = status === "pending";
+  const needsAttention = status === "actionRequired";
 
   return (
     <div className="shrink-0 bg-sidebar px-4 pb-3 md:px-6">
@@ -72,6 +73,10 @@ export function VerificationBanner() {
           <span className="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-white/10">
             <HugeiconsIcon icon={HourglassIcon} aria-hidden className="size-6 text-accent" />
           </span>
+        ) : needsAttention ? (
+          <span className="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-white/10">
+            <HugeiconsIcon icon={AlertCircleIcon} aria-hidden className="size-6 text-warning" />
+          </span>
         ) : (
           <ProgressRing
             value={100 / STEPS.length}
@@ -85,12 +90,18 @@ export function VerificationBanner() {
 
         <div className="relative min-w-0 flex-1">
           <p className="truncate text-base font-semibold">
-            {inReview ? "Your verification is in review" : "Verify your identity to start investing"}
+            {inReview
+              ? "Your verification is in review"
+              : needsAttention
+                ? "Your verification needs attention"
+                : "Verify your identity to start investing"}
           </p>
           <p className="hidden truncate text-sm text-white/60 sm:block">
             {inReview
               ? "We'll let you know once it's approved. Investing unlocks right after."
-              : "Have your BVN, NIN and a valid ID ready. You can explore meanwhile, but investing stays locked."}
+              : needsAttention
+                ? "Review your details and resubmit. Investing and withdrawals unlock once you're verified."
+                : "Have your NIN and a utility bill ready. You can explore meanwhile, but investing stays locked."}
           </p>
         </div>
 
@@ -106,14 +117,14 @@ export function VerificationBanner() {
           </Button>
         ) : (
           <>
-            <Steps />
+            {!needsAttention && <Steps />}
             <Button
               nativeButton={false}
               render={<Link href="/onboarding" />}
               className="relative h-10 shrink-0 rounded-full bg-accent px-5 text-sm text-accent-foreground hover:bg-accent/85"
             >
-              <span className="sm:hidden">Verify</span>
-              <span className="hidden sm:inline">Complete verification</span>
+              <span className="sm:hidden">{needsAttention ? "Review" : "Verify"}</span>
+              <span className="hidden sm:inline">{needsAttention ? "Review details" : "Complete verification"}</span>
               <HugeiconsIcon icon={ArrowRight02Icon} aria-hidden data-icon="inline-end" />
             </Button>
           </>

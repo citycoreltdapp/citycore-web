@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { dateSchema, paginatedSchema, paginationQuerySchema, positiveAmountSchema, resourceIdSchema } from "./common";
-import { investmentSchema } from "./marketplace";
+import { propertySchema } from "./marketplace";
 
 export const marketRegionSchema = z.enum(["all", "lagos", "abuja"]);
 export const marketPeriodSchema = z.enum(["ytd", "6m"]);
@@ -66,7 +66,7 @@ export const recommendationPreferencesRequestSchema = recommendationPreferencesF
   return result.data;
 });
 export const recommendationSchema = z.object({
-  investment: investmentSchema,
+  property: propertySchema,
   explanation: z.string().min(1),
   confidence: z.enum(["low", "medium", "high"]).nullable(),
 });

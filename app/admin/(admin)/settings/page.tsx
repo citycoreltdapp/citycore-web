@@ -1,5 +1,4 @@
-import { ProfileCard } from "@/app/dashboard/(dashboard)/settings/_profile-card";
-import { AddressCard, DeleteAccountCard, PrivacyCard } from "@/app/dashboard/(dashboard)/settings/_profile-options";
+import { AddressCard, DeleteAccountCard, PrivacyCard, ProfileCard } from "@/app/dashboard/(dashboard)/settings/page";
 
 export default function Page() {
   return (

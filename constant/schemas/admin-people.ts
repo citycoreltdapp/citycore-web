@@ -11,7 +11,7 @@ import {
 } from "./common";
 
 export const investorStatusSchema = z.enum(["active", "suspended", "blacklisted"]);
-export const kycStatusSchema = z.enum(["pending", "approved", "rejected", "escalated"]);
+export const kycReviewStatusSchema = z.enum(["pending", "approved", "rejected", "escalated"]);
 export const staffRoleSchema = z.enum(["super-admin", "compliance", "finance", "property-manager"]);
 export const adminInvestorSchema = z.object({
   id: resourceIdSchema,
@@ -20,7 +20,7 @@ export const adminInvestorSchema = z.object({
   phone: z.string().min(1),
   joinedAt: dateSchema,
   status: investorStatusSchema,
-  kycStatus: kycStatusSchema,
+  kycStatus: kycReviewStatusSchema,
   tier: z.number().int().min(1).max(3),
   investmentCount: z.number().int().nonnegative(),
   principal: amountSchema,
@@ -41,7 +41,7 @@ export const kycCaseSchema = z.object({
   id: resourceIdSchema,
   investorId: resourceIdSchema,
   submittedAt: timestampSchema,
-  status: kycStatusSchema,
+  status: kycReviewStatusSchema,
   tier: z.number().int().min(1).max(3),
   reviewerId: resourceIdSchema,
   birthYear: z.number().int().min(1900).max(2100),
@@ -132,7 +132,7 @@ export const adminPeopleQuerySchema = paginationQuerySchema.extend({
 export const adminInvestorsResponseSchema = paginatedSchema(adminInvestorSchema);
 export const adminKycQuerySchema = paginationQuerySchema.extend({
   search: searchSchema.optional(),
-  status: kycStatusSchema.optional(),
+  status: kycReviewStatusSchema.optional(),
 });
 export const adminKycResponseSchema = paginatedSchema(kycCaseSchema);
 export const adminStaffResponseSchema = z.array(staffMemberSchema);

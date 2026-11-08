@@ -2,38 +2,91 @@
 
 Import public contracts from `@/constant/schema.client`, or import one domain directly from `@/constant/schemas/<domain>` to keep dependencies focused. These are validation contracts, not implemented endpoints. Existing previews and layouts stay intact.
 
-| Page / feature                        | Fetch / response contracts                                                                                                                               | Create / update contracts                                                                                                                                            |
-| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard                             | `dashboardQuerySchema`, `dashboardSummaryResponseSchema`, `dashboardHistoryResponseSchema`, `dashboardTransactionsResponseSchema`                        | No mutation on the overview                                                                                                                                          |
-| Marketplace / detail                  | `investmentListQuerySchema`, `investmentListResponseSchema`, `investmentParamsSchema`, `investmentDetailResponseSchema`                                  | `investmentQuoteRequestSchema`, `purchaseInvestmentRequestSchema`                                                                                                    |
-| Checkout                              | `investmentQuoteResponseSchema`, `purchaseInvestmentResponseSchema`                                                                                      | `agreementFormSchema` validates UI consent; purchase submits a server quote ID                                                                                       |
-| My Investments                        | `holdingListQuerySchema`, `holdingListResponseSchema`, `portfolioSummaryResponseSchema`, `portfolioHistoryQuerySchema`, `portfolioHistoryResponseSchema` | Purchases go through checkout                                                                                                                                        |
-| Wallet                                | `walletResponseSchema`, `walletTransfersQuerySchema`, `walletTransfersResponseSchema`                                                                    | `fundingFormSchema`, `createFundingRequestSchema`, `createFundingResponseSchema`                                                                                     |
-| Withdrawals / credits                 | `creditListQuerySchema`, `creditListResponseSchema`, `bankAccountsResponseSchema`, `withdrawalListResponseSchema`                                        | `updateCreditRequestSchema`, `withdrawalQuoteRequestSchema`, `createWithdrawalRequestSchema`                                                                         |
-| Transactions / reports                | `transactionListQuerySchema`, `transactionListResponseSchema`, `reportQuerySchema`, `transactionReportResponseSchema`                                    | Read-only; format display rows after parsing                                                                                                                         |
-| Profile / address / privacy           | `profileResponseSchema`, `addressResponseSchema`, `privacyResponseSchema`                                                                                | `profileSchema`, `addressSchema`, `updateProfileRequestSchema`, `updateAddressRequestSchema`, `updatePrivacyRequestSchema`                                           |
-| Profile photo                         | `profilePhotoUploadResponseSchema`                                                                                                                       | `profilePhotoFileSchema` for the local file; `profilePhotoMetadataSchema` to request an upload; `commitProfilePhotoRequestSchema`, `deleteProfilePhotoRequestSchema` |
-| Password / 2FA                        | `twoFactorStatusResponseSchema`, `startTwoFactorResponseSchema`, `verifyTwoFactorResponseSchema`                                                         | `passwordSchema` for the form; `changePasswordRequestSchema`, `startTwoFactorRequestSchema`, `verifyTwoFactorRequestSchema`, `disableTwoFactorRequestSchema`         |
-| Social connections / deletion         | `socialConnectionsResponseSchema`, `startSocialConnectionResponseSchema`, `deleteAccountResponseSchema`                                                  | `startSocialConnectionRequestSchema`, `deleteAccountFormSchema`, `deleteAccountRequestSchema`, `cancelAccountDeletionRequestSchema`                                  |
-| Market Insights                       | `marketInsightsQuerySchema`, `marketInsightsResponseSchema`                                                                                              | Read-only; AI questions use chat contracts                                                                                                                           |
-| Investment Explorer / recommendations | `recommendationsResponseSchema`, `recommendationHistoryQuerySchema`, `recommendationHistoryResponseSchema`                                               | `recommendationPreferencesRequestSchema`, `updateRecommendationRequestSchema`, `marketQuestionFormSchema`                                                            |
-| Ask AI / floating chat / history      | `conversationListQuerySchema`, `conversationListResponseSchema`, `conversationSchema`, `chatStreamEventSchema`                                           | `sendChatMessageRequestSchema`, `updateConversationRequestSchema`, `chatFeedbackRequestSchema`; IDs use `conversationParamsSchema` / `messageParamsSchema`           |
-| Help Center / guides                  | `helpArticlesQuerySchema`, `helpArticlesResponseSchema`, `helpArticleSchema`, `productGuidesResponseSchema`, `helpDownloadResponseSchema`                | Read-only                                                                                                                                                            |
-| Admin dashboard                       | `adminDashboardQuerySchema`, `adminDashboardResponseSchema`                                                                                              | Read-only                                                                                                                                                            |
-| Auth / onboarding                     | Existing schemas re-exported from `constant/auth.ts` and `constant/onboarding.ts`                                                                        | Existing React Hook Form schemas retained                                                                                                                            |
+## Mobile parity
+
+The investor contracts mirror the Flutter app (`citycorerunner_app/lib`) field for field, so web and mobile hit the same endpoints with the same payloads:
+
+- **Wire format is snake_case**, exactly what the app's `fromJson` factories read. Schemas, types and UI use the camelCase names of the Dart fields. Convert only at the boundary with `fromApi(schema, json)` and `toApi(schema, payload)` from `lib/api.ts`.
+- **Endpoints** live in `API_ROUTES` (`lib/api.ts`), copied from the app's `AppConstants`. List endpoints return plain arrays, not pages.
+- **Enum values are the Dart enum names** and are sent as-is: `fundingSoon`, `fullyFunded`, `mixedUse`, `notStarted`, `actionRequired`, `oneMonth`.
+- **Web-only fields are optional additions.** A mobile body always validates. These extra fields are: `agreementVersion`, `signatureName`, `authenticatorCode`, `idempotencyKey` and property `documents`.
+
+| Mobile model (Dart)                           | Web schema                                                                                     | Endpoint                                                      |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `HomeDashboard`, `KycStatus`, `ChartRange`    | `homeDashboardSchema`, `kycStatusSchema`, `chartRangeSchema`                                   | `GET /dashboard`                                              |
+| `Property`, `ReferralPlan`                    | `propertySchema`, `propertyListResponseSchema`                                                 | `GET /properties`, `GET /properties/{id}`                     |
+| `invest(id, units, pin)`, `InvestmentReceipt` | `investRequestSchema`, `investmentReceiptSchema`                                               | `POST /properties/{id}/invest`                                |
+| `Holding`, `PortfolioSummary`                 | `holdingSchema`, `holdingListResponseSchema`, `portfolioSummarySchema` (derived on the client) | `GET /portfolio/holdings`, `GET /portfolio/holdings/{id}`     |
+| `WalletInfo`, `BankAccount`                   | `walletSchema`, `bankAccountSchema`                                                            | `GET /wallet`                                                 |
+| `Transaction`                                 | `transactionSchema`, `transactionListResponseSchema`                                           | `GET /wallet/transactions`                                    |
+| `withdraw(amount, pin)`                       | `withdrawRequestSchema` (minimum ₦1,000, free)                                                 | `POST /wallet/withdraw`                                       |
+| `fundWithCard(amount)`                        | `fundWithCardRequestSchema` (minimum ₦1,000)                                                   | `POST /wallet/fund/card`                                      |
+| `savePayoutAccount(account, pin)`             | `savePayoutAccountRequestSchema`                                                               | Mock only in the app; `API_ROUTES.payoutAccount`              |
+| `NinIdentity`, KYC form                       | `ninIdentitySchema`, `identitySchema`, `kycSubmissionRequestSchema` (web-only)                 | Mock only in the app; `API_ROUTES.ninLookup`, `kycSubmission` |
+| `InboxMessage`, `NotificationTopic`           | `inboxMessageSchema`, `notificationPreferencesSchema` (`constant/notifications.ts`)            | Mock only in the app; `API_ROUTES.notifications`              |
+| Referral models                               | `referralDashboardResponseSchema`, `referralPlanSchema`                                        | Mock only in the app; `API_ROUTES.referrals`                  |
+
+The app's getters are mirrored as plain functions next to the fixtures:
+
+- **Property:** `unitsLeft`, `fundedFraction`, `canInvest`, `returnFor`
+- **Holding:** `expectedReturn`, `accruedYield`, `progress`, `monthsElapsed`, `portfolioSummary`. These take an `asOf` date so prerendered pages never read the clock.
+- **Transaction:** `transactionReference`, `isCredit`
+- **Bank account:** `maskedAccount`
+- **Dashboard:** `totalBalance`
+
+Holding state is `active | matured`. The web has no separate "pending" holding.
+
+Removed in favour of the mobile shapes:
+
+- `investmentSchema`
+- the quote and purchase schemas
+- `holdingListQuerySchema`
+- `creditRowSchema` and the other credit schemas
+- `transactionRowSchema`
+- `walletTransfersResponseSchema`
+- `bankAccountsResponseSchema`
+- `dashboardSummaryResponseSchema` and the other dashboard schemas
+
+Admin publication state is `publicationStatus` (`draft | active | paused | pending-review`). It is separate from the property's funding `status`.
+
+| Page / feature                        | Fetch / response contracts                                                                                                                  | Create / update contracts                                                                                                                                            |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard                             | `homeDashboardSchema`                                                                                                                       | No mutation on the overview                                                                                                                                          |
+| Marketplace / detail                  | `propertyListResponseSchema`, `propertyParamsSchema`, `propertySchema`                                                                      | Filters run on the client, as in the app                                                                                                                             |
+| Checkout                              | `investmentReceiptSchema`                                                                                                                   | `agreementFormSchema` for consent and PIN; `investRequestSchema` is the request body                                                                                 |
+| My Investments                        | `holdingListResponseSchema`, `holdingSchema`; `portfolioSummarySchema` is derived                                                           | Purchases go through checkout                                                                                                                                        |
+| Wallet                                | `walletSchema`, `transactionListResponseSchema`                                                                                             | `fundingFormSchema` for the form; `fundWithCardRequestSchema`, `savePayoutAccountRequestSchema`                                                                      |
+| Withdrawals                           | `walletSchema` (payout account and balance), `transactionListResponseSchema` filtered to withdrawals                                        | `withdrawalSchema(balance)` for the form (`constant/withdrawal.ts`); `withdrawRequestSchema` is the request body                                                     |
+| Referrals                             | `referralDashboardResponseSchema`, `resolveReferralCodeResponseSchema`; `propertySchema.referralPlan` is the package's `referralPlanSchema` | `resolveReferralCodeRequestSchema` at sign-up (the `referrer` field)                                                                                                 |
+| Transactions                          | `transactionListResponseSchema`                                                                                                             | Read-only; type filter, search and In/Out totals run on the client, as in the app                                                                                    |
+| Profile / address / privacy           | `profileResponseSchema`, `addressResponseSchema`, `privacyResponseSchema`                                                                   | `profileSchema`, `addressSchema`, `updateProfileRequestSchema`, `updateAddressRequestSchema`, `updatePrivacyRequestSchema`                                           |
+| Profile photo                         | `profilePhotoUploadResponseSchema`                                                                                                          | `profilePhotoFileSchema` for the local file; `profilePhotoMetadataSchema` to request an upload; `commitProfilePhotoRequestSchema`, `deleteProfilePhotoRequestSchema` |
+| Password / 2FA                        | `twoFactorStatusResponseSchema`, `startTwoFactorResponseSchema`, `verifyTwoFactorResponseSchema`                                            | `passwordSchema` for the form; `changePasswordRequestSchema`, `startTwoFactorRequestSchema`, `verifyTwoFactorRequestSchema`, `disableTwoFactorRequestSchema`         |
+| Social connections / deletion         | `socialConnectionsResponseSchema`, `startSocialConnectionResponseSchema`, `deleteAccountResponseSchema`                                     | `startSocialConnectionRequestSchema`, `deleteAccountFormSchema`, `deleteAccountRequestSchema`, `cancelAccountDeletionRequestSchema`                                  |
+| Market Insights                       | `marketInsightsQuerySchema`, `marketInsightsResponseSchema`                                                                                 | Read-only; AI questions use chat contracts                                                                                                                           |
+| Investment Explorer / recommendations | `recommendationsResponseSchema`, `recommendationHistoryQuerySchema`, `recommendationHistoryResponseSchema`                                  | `recommendationPreferencesRequestSchema`, `updateRecommendationRequestSchema`, `marketQuestionFormSchema`                                                            |
+| Ask AI / floating chat / history      | `conversationListQuerySchema`, `conversationListResponseSchema`, `conversationSchema`, `chatStreamEventSchema`                              | `sendChatMessageRequestSchema`, `updateConversationRequestSchema`, `chatFeedbackRequestSchema`; IDs use `conversationParamsSchema` / `messageParamsSchema`           |
+| Help Center / guides                  | `helpArticlesQuerySchema`, `helpArticlesResponseSchema`, `helpArticleSchema`, `productGuidesResponseSchema`, `helpDownloadResponseSchema`   | Read-only                                                                                                                                                            |
+| Notifications                         | `inboxResponseSchema` (`constant/notifications.ts`)                                                                                         | `notificationPreferencesSchema`; read state stays on the device, as in the app                                                                                       |
+| Admin dashboard                       | `adminDashboardQuerySchema`, `adminDashboardResponseSchema`                                                                                 | Read-only                                                                                                                                                            |
+| Auth / onboarding / KYC               | `ninIdentitySchema`, `kycStatusSchema` (`constant/onboarding.ts`); auth schemas from `constant/auth.ts`                                     | `ninLookupRequestSchema`, `onboardingSchema` for the form, `kycSubmissionRequestSchema`                                                                              |
 
 ## Wiring a fetch
 
 ```ts
-const query = investmentListQuerySchema.parse({ page: "1", pageSize: "12" });
-const response = await fetch(
-  `/api/investments?${new URLSearchParams({ page: String(query.page), pageSize: String(query.pageSize) })}`
-);
-if (!response.ok) throw new Error("Unable to load investments");
-const data = investmentListResponseSchema.parse(await response.json());
+import { API_ROUTES, fromApi, toApi } from "@/lib/api";
+
+const response = await fetch(`${API_BASE}${API_ROUTES.properties}`);
+if (!response.ok) throw new Error("Unable to load properties");
+const properties = fromApi(propertyListResponseSchema, await response.json());
+
+await fetch(`${API_BASE}${API_ROUTES.invest(property.id)}`, {
+  method: "POST",
+  body: JSON.stringify(toApi(investRequestSchema, { units, pin, idempotencyKey })),
+});
 ```
 
-The URL above is an example; there is no new API implementation. Parse queries, payloads and responses at their boundaries. Do not cast JSON to a TypeScript type.
+`API_BASE` is yours to configure; there is no API implementation in this repo. Parse queries, payloads and responses at their boundaries. Never cast JSON to a TypeScript type, and never log a body that holds a PIN.
 
 ## Form input versus API output
 
@@ -51,8 +104,8 @@ The existing profile, address, password and agreement forms consume shared schem
 
 ## Conventions
 
-- Pagination is one-based: `{ page, pageSize }` in; `{ items, page, pageSize, total }` out.
-- Monetary values are **major currency units**, finite, at most two decimal places. Currency is explicit where accounts can contain multiple currencies. Display strings in transaction/credit fixture schemas are separate from normalized API amounts.
+- Investor list endpoints return plain arrays, like the app. Admin lists stay paginated and one-based: `{ page, pageSize }` in; `{ items, page, pageSize, total }` out.
+- Monetary values are **major currency units**, finite, at most two decimal places. Currency is explicit where accounts can contain multiple currencies. Transaction amounts are signed: credits positive, debits negative.
 - Dates are ISO calendar dates; timestamps are ISO datetimes. Date-range queries reject reversed ranges. Optional query booleans accept `"true"` / `"false"`, not JavaScript truthiness.
 - Write payloads use strict objects where appropriate, so extra fields such as client-supplied prices or balances fail validation. Server-side authorization, ownership, current balance, quote expiry, fees, availability and idempotency still need enforcement.
 - A selected 2FA preference is not a verified enrollment. Enrollment uses a challenge ID and a verification code. Secret setup URIs, codes and passwords must not be logged or persisted in public profile/history responses.
@@ -75,7 +128,7 @@ Routes on the admin tenant: `/users`, `/users/management?investor=CC-U014`, `/us
 
 `admin-investments.ts` provides offering form, record, list query/response, create/update and status-change contracts. Routes: `/investments`, `/investments/new`, `/investments/[id]` and `/investments/[id]/edit` on the admin tenant. The UI reuses the dashboard's current property cards and detail components. Drafts, custom covers and publication-review requests persist locally; no investor-facing offering is modified.
 
-Amounts use NGN major units. Allocated units are server-owned and cannot be edited; total units cannot fall below existing allocation. Writes carry version and idempotency keys. Upload the image through an authorized asset endpoint and send `coverAssetId` in API writes; `coverPreview` is browser-only and omitted from write contracts. The server must enforce publisher authorization, independent publication approval, document readiness, valid dates and authoritative allocation counts.
+Amounts use NGN major units. Units sold (`unitsSold`) are server-owned and cannot be edited; total units cannot fall below units sold. Writes carry version and idempotency keys. Upload the image through an authorized asset endpoint and send `coverAssetId` in API writes; `coverPreview` is browser-only and omitted from write contracts. The server must enforce publisher authorization, independent publication approval, document readiness, valid dates and authoritative allocation counts.
 
 ### Returns, treasury and banking
 

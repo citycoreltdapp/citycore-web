@@ -1,44 +1,45 @@
-// ponytail: mock data from the Figma frames. Replace each export with an API call once the backend exists.
+// ponytail: same entries as the mobile WalletMockData.transactions(). Replace with GET /wallet/transactions.
 import type { Transaction } from "@/constant/schemas/finance";
+import { REFERRAL_DASHBOARD } from "@/lib/referrals";
 
-export type { Transaction } from "@/constant/schemas/finance";
-export type TransactionStatus = Transaction["status"];
+export type { Transaction, TransactionStatus, TransactionType } from "@/constant/schemas/finance";
 
-const DESIGN_ROWS: [string, string, Transaction["medium"], TransactionStatus][] = [
-  ["Deposit Cash", "#526534", "PayPal", "Successful"],
-  ["Withdraw Cash", "#526520", "PayPal", "Pending"],
-  ["Online Transfer", "#256584", "PayPal", "Successful"],
-  ["Check Deposit", "#200257", "PayPal", "Pending"],
-  ["ATM Withdrawal", "#696589", "Visa", "Successful"],
-  ["Wire Transfer", "#526525", "Payoneer", "Cancel"],
-  ["Bill Payment", "#105986", "Payoneer", "Successful"],
-  ["Mobile Banking Transfer", "#526587", "PayPal", "Pending"],
-  ["Direct Deposit", "#105986", "Payoneer", "Successful"],
-  ["Balance Inquiry", "#526587", "PayPal", "Pending"],
-  ["Loan Payment", "#105986", "Payoneer", "Successful"],
-  ["Foreign Currency Exchange", "#526587", "PayPal", "Cancel"],
-  ["Overdraft Fee", "#105986", "Visa", "Successful"],
-  ["Automatic Debit", "#526587", "Payoneer", "Successful"],
-  ["Interest Deposit", "#105986", "Visa", "Successful"],
-  ["Account Closure", "#526587", "Payoneer", "Successful"],
-  ["Credit Card Payment", "#105986", "Visa", "Successful"],
-  ["Stop Payment", "#526587", "PayPal", "Successful"],
-];
+const tx = (
+  id: string,
+  title: string,
+  type: Transaction["type"],
+  amount: number,
+  date: string,
+  status: Transaction["status"] = "successful"
+): Transaction => ({ id, title, type, status, amount, date });
 
-// The first 18 rows are from the design; the rest repeat them so paging has 100 entries to work with.
-export const TRANSACTIONS: Transaction[] = Array.from({ length: 100 }, (_, index) => {
-  const [title, invoice, medium, status] = DESIGN_ROWS[index % DESIGN_ROWS.length];
+export const TRANSACTIONS: Transaction[] = [
+  ...REFERRAL_DASHBOARD.commissions
+    .filter((entry) => entry.status === "paid")
+    .map((entry) => tx(entry.id, `Referral commission · ${entry.title}`, "commission", entry.amount, entry.date)),
+  tx("tx_1", "Golden Estate, Lekki", "investment", -450_000, "2026-11-08T06:00:00+01:00"),
+  tx("tx_2", "Wallet funding · Transfer", "deposit", 800_000, "2026-11-07T07:00:00+01:00"),
+  tx("tx_3", "Monthly yield · Palm Court", "payout", 42_500, "2026-11-04T09:00:00+01:00"),
+  tx("tx_4", "Withdrawal to GTBank", "withdrawal", -150_000, "2026-11-02T09:00:00+01:00", "pending"),
+  tx("tx_5", "Wallet funding · Card", "deposit", 200_000, "2026-10-30T09:00:00+01:00", "failed"),
+  tx("tx_6", "Cedar Gardens, GRA", "investment", -1_500_000, "2026-10-27T09:00:00+01:00"),
+  tx("tx_7", "Wallet funding · Transfer", "deposit", 2_000_000, "2026-10-26T09:00:00+01:00"),
+  tx("tx_8", "Marina Heights payout", "payout", 1_755_000, "2026-09-11T09:00:00+01:00"),
+  tx("tx_9", "Withdrawal to GTBank", "withdrawal", -500_000, "2026-09-08T09:00:00+01:00"),
+].toSorted((a, b) => b.date.localeCompare(a.date));
 
-  return {
-    key: String(index),
-    title,
-    date: "11 Aug, 24. 10:36 am",
-    invoice,
-    medium,
-    amount: "-₦24,212.12",
-    status,
-  };
-});
+// Same derived values as the getters on the mobile Transaction model.
+export const transactionReference = (transaction: Transaction) =>
+  `CC-${transaction.id.toUpperCase().replaceAll("_", "")}`;
+export const TRANSACTION_TYPE_LABELS: Record<Transaction["type"], string> = {
+  deposit: "Deposit",
+  withdrawal: "Withdrawal",
+  investment: "Investment",
+  payout: "Yield payout",
+  commission: "Referral commission",
+};
+export const isCredit = (transaction: Transaction) =>
+  transaction.type === "deposit" || transaction.type === "payout" || transaction.type === "commission";
 
 export const REPORT_STATS = [
   { label: "Total Balance", value: 98.5, trend: { value: "50.8%", direction: "up" } },

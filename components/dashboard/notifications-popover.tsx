@@ -5,29 +5,43 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type DashboardNotification, NOTIFICATIONS, type NotificationType } from "@/constant/notifications";
 import {
-  Analytics01Icon,
-  ArrowDownLeft01Icon,
-  ArrowUpRight01Icon,
+  INBOX_AS_OF,
+  type InboxMessage,
+  NOTIFICATIONS,
+  NOTIFICATION_TOPIC_LABELS,
+  type NotificationTopic,
+  READ_NOTIFICATION_IDS,
+} from "@/constant/notifications";
+import {
   ChartIncreaseIcon,
   Notification01Icon,
-  SecurityCheckIcon,
   TickDouble02Icon,
+  UserCircleIcon,
+  Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 import { cn } from "cn";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 
-const TYPE_STYLES: Record<NotificationType, { icon: IconSvgElement; className: string }> = {
-  deposit: { icon: ArrowDownLeft01Icon, className: "bg-chart-4/15 text-chart-4" },
-  withdrawal: { icon: ArrowUpRight01Icon, className: "bg-chart-5/15 text-chart-5" },
-  investment: { icon: ChartIncreaseIcon, className: "bg-chart-2/15 text-chart-2" },
-  market: { icon: Analytics01Icon, className: "bg-chart-3/20 text-chart-5" },
-  security: { icon: SecurityCheckIcon, className: "bg-destructive/10 text-destructive" },
+const TOPIC_STYLES: Record<NotificationTopic, { icon: IconSvgElement; className: string }> = {
+  wallet: { icon: Wallet01Icon, className: "bg-chart-4/15 text-chart-4" },
+  investments: { icon: ChartIncreaseIcon, className: "bg-chart-2/15 text-chart-2" },
+  account: { icon: UserCircleIcon, className: "bg-chart-3/20 text-chart-5" },
 };
+const NO_TOPIC = { icon: Notification01Icon, className: "bg-muted text-muted-foreground" };
 
 const GROUPS = ["Today", "Earlier"] as const;
+const LAGOS_DAY = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" });
+
+function relativeTime(date: string, asOf: string) {
+  const minutes = Math.max(Math.round((Date.parse(asOf) - Date.parse(date)) / 60_000), 0);
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 60 * 24) return `${Math.floor(minutes / 60)}h`;
+  return `${Math.floor(minutes / (60 * 24))}d`;
+}
+const groupOf = (date: string, asOf: string) =>
+  LAGOS_DAY.format(new Date(date)) === LAGOS_DAY.format(new Date(asOf)) ? "Today" : "Earlier";
 const EASE_OUT = [0.22, 1, 0.36, 1] as const;
 
 function UnreadBadge({ count }: { count: number }) {
@@ -52,15 +66,19 @@ function UnreadBadge({ count }: { count: number }) {
 
 function NotificationItem({
   notification,
+  isRead,
+  asOf,
   index,
   onRead,
 }: {
-  notification: DashboardNotification;
+  notification: InboxMessage;
+  isRead: boolean;
+  asOf: string;
   index: number;
   onRead: (id: string) => void;
 }) {
-  const { id, type, title, description, time, isRead } = notification;
-  const { icon, className } = TYPE_STYLES[type];
+  const { id, topic, title, message, date } = notification;
+  const { icon, className } = topic ? TOPIC_STYLES[topic] : NO_TOPIC;
 
   return (
     <motion.li
@@ -77,6 +95,7 @@ function NotificationItem({
       >
         <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", className)}>
           <HugeiconsIcon icon={icon} aria-hidden className="size-4.5" />
+          {topic && <span className="sr-only">{NOTIFICATION_TOPIC_LABELS[topic]}</span>}
         </span>
 
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -84,10 +103,12 @@ function NotificationItem({
             <span className={cn("truncate text-sm", isRead ? "text-muted-foreground" : "font-medium text-foreground")}>
               {title}
             </span>
-            <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time}</span>
+            <time dateTime={date} className="shrink-0 text-xs text-muted-foreground tabular-nums">
+              {relativeTime(date, asOf)}
+            </time>
           </span>
           <span className="flex items-start justify-between gap-3">
-            <span className="line-clamp-2 text-xs/5 text-muted-foreground">{description}</span>
+            <span className="line-clamp-2 text-xs/5 text-muted-foreground">{message}</span>
             <span
               className={cn(
                 "mt-1.5 size-2 shrink-0 rounded-full bg-primary transition-[opacity,scale] duration-200",
@@ -121,22 +142,23 @@ function EmptyState() {
 }
 
 export function NotificationsPopover({
-  initialNotifications = NOTIFICATIONS,
+  messages = NOTIFICATIONS,
+  initialReadIds = READ_NOTIFICATION_IDS,
+  asOf = INBOX_AS_OF,
 }: {
-  initialNotifications?: DashboardNotification[];
+  messages?: InboxMessage[];
+  initialReadIds?: string[];
+  asOf?: string;
 }) {
-  const [notifications, setNotifications] = React.useState(initialNotifications);
+  const [readIds, setReadIds] = React.useState(() => new Set(initialReadIds));
   const [tab, setTab] = React.useState("all");
 
-  const unreadCount = notifications.filter((notification) => !notification.isRead).length;
-  const visible = tab === "unread" ? notifications.filter((notification) => !notification.isRead) : notifications;
+  const unread = messages.filter((message) => !readIds.has(message.id));
+  const unreadCount = unread.length;
+  const visible = tab === "unread" ? unread : messages;
 
-  const markAsRead = (id: string) =>
-    setNotifications((current) =>
-      current.map((notification) => (notification.id === id ? { ...notification, isRead: true } : notification))
-    );
-  const markAllAsRead = () =>
-    setNotifications((current) => current.map((notification) => ({ ...notification, isRead: true })));
+  const markAsRead = (id: string) => setReadIds((current) => new Set(current).add(id));
+  const markAllAsRead = () => setReadIds(new Set(messages.map((message) => message.id)));
 
   return (
     <Popover>
@@ -197,7 +219,7 @@ export function NotificationsPopover({
                 <EmptyState />
               ) : (
                 GROUPS.map((group) => {
-                  const items = visible.filter((notification) => notification.group === group);
+                  const items = visible.filter((notification) => groupOf(notification.date, asOf) === group);
                   if (items.length === 0) return null;
 
                   return (
@@ -209,6 +231,8 @@ export function NotificationsPopover({
                             <NotificationItem
                               key={notification.id}
                               notification={notification}
+                              isRead={readIds.has(notification.id)}
+                              asOf={asOf}
                               index={index}
                               onRead={markAsRead}
                             />

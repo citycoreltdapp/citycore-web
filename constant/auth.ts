@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { REFERRAL_CODE_PATTERN } from "./schemas/referrals";
+
 const email = z.string().trim().toLowerCase().pipe(z.email("Enter a valid email address"));
 const newPassword = z.string().min(8, "Password must be at least 8 characters");
 
@@ -11,7 +13,11 @@ const passwordsMatch = {
 
 export const signUpSchema = z
   .object({
-    referrer: z.string().trim().max(64, "Referrer is too long"),
+    referrer: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .refine((code) => code === "" || REFERRAL_CODE_PATTERN.test(code), "Enter a valid referral code"),
     email,
     password: newPassword,
     confirmPassword: z.string(),

@@ -1,18 +1,16 @@
 "use client";
 import { useSyncExternalStore } from "react";
 
-export type VerificationStatus = "unverified" | "in-review" | "verified";
+import { type KycStatus, kycStatusSchema } from "@/constant/onboarding";
 
-const STORAGE_KEY = "citycore.verification-status.v1";
+const STORAGE_KEY = "citycore.kyc-status.v2";
 const CHANGE_EVENT = "citycore-verification-change";
-const STATUSES: VerificationStatus[] = ["unverified", "in-review", "verified"];
 
-function read(): VerificationStatus {
+function read(): KycStatus {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return STATUSES.find((s) => s === raw) ?? "unverified";
+    return kycStatusSchema.catch("notStarted").parse(window.localStorage.getItem(STORAGE_KEY));
   } catch {
-    return "unverified";
+    return "notStarted";
   }
 }
 
@@ -25,8 +23,8 @@ function subscribe(callback: () => void) {
   };
 }
 
-// ponytail: no accounts API yet, so the status lives in this browser. Read it from the session once auth exists.
-export function setVerificationStatus(status: VerificationStatus) {
+// ponytail: no accounts API yet, so the status lives in this browser. Read `kycStatus` from GET /dashboard once it exists.
+export function setKycStatus(status: KycStatus) {
   try {
     window.localStorage.setItem(STORAGE_KEY, status);
   } catch {
@@ -36,6 +34,6 @@ export function setVerificationStatus(status: VerificationStatus) {
 }
 
 /** `null` until hydrated, so the server render never guesses the investor's status. */
-export function useVerificationStatus(): VerificationStatus | null {
+export function useKycStatus(): KycStatus | null {
   return useSyncExternalStore(subscribe, read, () => null);
 }

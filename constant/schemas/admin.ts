@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-import { dashboardTransactionsResponseSchema } from "./dashboard";
-
 export const adminRangeSchema = z.enum(["15d", "30d", "90d"]);
 export const adminDashboardQuerySchema = z.object({ range: adminRangeSchema.default("15d") });
 
@@ -32,11 +30,19 @@ export const adminUsersByCountrySchema = z.object({
   users: z.number().int().nonnegative(),
 });
 
+export const adminLatestTransactionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  date: z.string(),
+  medium: z.string(),
+  amount: z.string(),
+});
+
 export const adminDashboardResponseSchema = z.object({
   stats: z.array(adminStatSchema),
   transactionOverview: z.array(adminTransactionOverviewPointSchema),
   incomeAndExpenses: z.array(adminIncomeExpensePointSchema),
-  latestTransactions: dashboardTransactionsResponseSchema,
+  latestTransactions: z.array(adminLatestTransactionSchema),
   usersByCountry: z.array(adminUsersByCountrySchema),
 });
 

@@ -1,7 +1,7 @@
 "use client";
 import * as React from "react";
 
-import { naira } from "@/app/dashboard/(dashboard)/marketplace/_data";
+import { naira } from "@/app/dashboard/(dashboard)/marketplace/page";
 import { AppModal } from "@/components/primitives/app-modal";
 import { DateField } from "@/components/primitives/date-field";
 import { FileUpload } from "@/components/primitives/file-upload";
@@ -26,20 +26,25 @@ import { toast } from "sonner";
 
 import { STAFF } from "../_operations/data";
 import { Notice, PageLink, PageTitle, Panel, StatusBadge } from "../_operations/ui";
-import { CATEGORY_ITEMS, IMAGE_ITEMS } from "./_data";
+import { IMAGE_ITEMS, TYPE_ITEMS } from "./_data";
 import { useAdminInvestments } from "./_store";
 
 const DEFAULTS: AdminInvestmentForm = {
   name: "",
   location: "",
-  category: "residential",
+  city: "",
+  type: "residential",
+  developer: "",
+  completionDate: "",
   image: "golden-estate",
   description: "",
-  annualRoi: 14,
-  tenure: 12,
+  highlights: [],
+  targetRoi: 14,
+  tenureMonths: 12,
   unitPrice: 150000,
   totalUnits: 1000,
-  minimumUnits: 1,
+  minUnits: 1,
+  maxUnits: 50,
   startDate: "",
   endDate: "",
   publisherId: "staff-nneka",
@@ -102,13 +107,15 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
     reader.onabort = () => setUploading(false);
     reader.readAsDataURL(parsed.data);
   };
-  const allocated = investment?.allocatedUnits ?? 0;
-  const persist = (data: AdminInvestmentForm, status: "draft" | "pending-review") => {
+  const allocated = investment?.unitsSold ?? 0;
+  const persist = (data: AdminInvestmentForm, publicationStatus: "draft" | "pending-review") => {
     const next: AdminInvestment = {
       ...data,
       id: investment?.id ?? crypto.randomUUID(),
-      allocatedUnits: allocated,
-      status,
+      unitsSold: allocated,
+      // New offerings open once approved; the server owns the funding status after that.
+      status: investment?.status ?? "fundingSoon",
+      publicationStatus,
       version: (investment?.version ?? 0) + 1,
       updatedAt: new Date().toISOString(),
     };
@@ -116,7 +123,7 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
       setSaved(true);
       form.reset(data);
       toast.success(
-        status === "draft"
+        publicationStatus === "draft"
           ? "Investment draft saved locally"
           : "Publication review saved locally; no live changes applied"
       );
@@ -151,13 +158,17 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
           <p className="text-lg font-semibold">{data.name}</p>
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <dt>Location</dt>
-            <dd>{data.location}</dd>
+            <dd>
+              {data.location}, {data.city}
+            </dd>
+            <dt>Developer</dt>
+            <dd>{data.developer}</dd>
             <dt>Unit price</dt>
             <dd>{naira(data.unitPrice)}</dd>
             <dt>Target annual ROI</dt>
-            <dd>{data.annualRoi}% · not guaranteed</dd>
+            <dd>{data.targetRoi}% · not guaranteed</dd>
             <dt>Tenure</dt>
-            <dd>{data.tenure} months</dd>
+            <dd>{data.tenureMonths} months</dd>
             <dt>Offering</dt>
             <dd>{data.totalUnits.toLocaleString()} units</dd>
             <dt>Publisher</dt>
@@ -216,32 +227,72 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
                   )}
                 />
                 <Controller
-                  name="category"
+                  name="type"
                   control={form.control}
                   render={({ field, fieldState }) => (
                     <SelectField
                       {...field}
-                      id="offering-category"
-                      label="Investment Category"
-                      items={CATEGORY_ITEMS}
+                      id="offering-type"
+                      label="Property type"
+                      items={TYPE_ITEMS}
                       error={fieldState.error?.message}
                     />
                   )}
                 />
               </div>
-              <Controller
-                name="location"
-                control={form.control}
-                render={({ field, fieldState }) => (
-                  <TextField
-                    {...field}
-                    id="offering-location"
-                    label="Location"
-                    placeholder="District, city"
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Controller
+                  name="location"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      id="offering-location"
+                      label="Neighbourhood"
+                      placeholder="e.g. Lekki Phase 1"
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="city"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      id="offering-city"
+                      label="City"
+                      placeholder="e.g. Lagos"
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="developer"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      id="offering-developer"
+                      label="Developer"
+                      placeholder="e.g. Landmark Homes Ltd"
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="completionDate"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <DateField
+                      {...field}
+                      id="offering-completion"
+                      label="Completion date"
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </div>
               <div className="relative aspect-16/9 overflow-hidden rounded-2xl bg-muted">
                 <Image
                   src={imageSrc}
@@ -315,6 +366,23 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
                   />
                 )}
               />
+              <Controller
+                name="highlights"
+                control={form.control}
+                render={({ field, fieldState }) => (
+                  <TextAreaField
+                    id="offering-highlights"
+                    label="Highlights"
+                    helpText="One per line, up to six. Investors see these on the property page."
+                    placeholder={"Verified C of O and approved building plan\nQuarterly construction updates"}
+                    value={field.value.join("\n")}
+                    onChange={(text) => field.onChange(text.split("\n").slice(0, 6))}
+                    onBlur={() => field.onChange(field.value.map((line) => line.trim()).filter(Boolean))}
+                    textareaClassName="min-h-28"
+                    error={fieldState.error?.message}
+                  />
+                )}
+              />
             </Panel>
             <Panel title="Cover rights & offering review">
               <Controller
@@ -351,10 +419,11 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                 {(
                   [
-                    { name: "annualRoi", label: "Target annual ROI (%)", decimal: true },
+                    { name: "targetRoi", label: "Target annual ROI (%)", decimal: true },
                     { name: "unitPrice", label: "Unit Price", decimal: true },
                     { name: "totalUnits", label: "Total Units", decimal: false },
-                    { name: "minimumUnits", label: "Minimum Units", decimal: false },
+                    { name: "minUnits", label: "Minimum units per investor", decimal: false },
+                    { name: "maxUnits", label: "Maximum units per investor", decimal: false },
                   ] as const
                 ).map(({ name, label, decimal }) => (
                   <Controller
@@ -378,7 +447,7 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
                 {allocated.toLocaleString()} units already allocated. Allocations cannot be edited here.
               </p>
               <Controller
-                name="tenure"
+                name="tenureMonths"
                 control={form.control}
                 render={({ field, fieldState }) => (
                   <NumberField
@@ -406,7 +475,7 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
                 />
               </div>
               <Notice>
-                Minimum investment: {naira((values.minimumUnits ?? 0) * (values.unitPrice ?? 0))}. Total offering:{" "}
+                Minimum investment: {naira((values.minUnits ?? 0) * (values.unitPrice ?? 0))}. Total offering:{" "}
                 {naira((values.totalUnits ?? 0) * (values.unitPrice ?? 0))}.
               </Notice>
             </Panel>
@@ -432,7 +501,7 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
               </Notice>
             </Panel>
             <Panel title="Publication" description="Save your work or request a review">
-              <StatusBadge value={investment?.status ?? "draft"} />
+              <StatusBadge value={investment?.publicationStatus ?? "draft"} />
               <Button className="w-full" type="submit" disabled={uploading || saved}>
                 Review publication changes
               </Button>

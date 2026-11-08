@@ -2,145 +2,82 @@ import { z } from "zod";
 
 import {
   amountSchema,
-  currencySchema,
-  dateRangeSchema,
-  paginatedSchema,
-  paginationQuerySchema,
+  idempotencyKeySchema,
   positiveAmountSchema,
   resourceIdSchema,
   timestampSchema,
+  transactionPinSchema,
 } from "./common";
 
-export const fundingMethodSchema = z.enum(["bank", "card", "virtual"]);
-export const fundingFormSchema = z.object({ amount: positiveAmountSchema, method: fundingMethodSchema });
-export const createFundingRequestSchema = z.strictObject({
-  amount: positiveAmountSchema,
-  currency: currencySchema,
-  method: fundingMethodSchema,
-  idempotencyKey: z.uuid(),
-});
-export const createFundingResponseSchema = z.object({
-  id: resourceIdSchema,
-  reference: z.string(),
-  amount: positiveAmountSchema,
-  currency: currencySchema,
-  fee: amountSchema,
-  status: z.enum(["pending", "confirmed", "failed"]),
-  expiresAt: timestampSchema,
-  paymentUrl: z.url().nullable(),
-});
-export const walletBalanceSchema = z.object({
-  currency: currencySchema,
-  available: amountSchema,
-  pending: amountSchema,
-});
-export const walletResponseSchema = z.object({ balances: z.array(walletBalanceSchema), updatedAt: timestampSchema });
-export const walletTransfersQuerySchema = z.object({ period: z.enum(["recent", "1y", "5y"]).default("1y") });
-export const walletTransfersResponseSchema = z.array(
-  z.object({ month: z.string(), usd: amountSchema, eur: amountSchema })
-);
-export const transactionStatusSchema = z.enum(["Successful", "Pending", "Cancel"]);
-// Display-ready shape used by the current table; normalized amounts also have their own schema below.
-export const transactionRowSchema = z.object({
-  key: resourceIdSchema,
-  title: z.string(),
-  date: z.string(),
-  invoice: z.string(),
-  medium: z.enum(["PayPal", "Visa", "Payoneer"]),
-  amount: z.string().min(1),
-  status: transactionStatusSchema,
-});
+// Mirrors features/home/models/transaction.dart and features/wallet/models/wallet.dart in the mobile app.
+export const MINIMUM_CARD_FUNDING = 1000;
+export const MINIMUM_WITHDRAWAL = 1000;
+
+export const transactionTypeSchema = z.enum(["deposit", "withdrawal", "investment", "payout", "commission"]);
+export const transactionStatusSchema = z.enum(["successful", "pending", "failed"]);
 export const transactionSchema = z.object({
   id: resourceIdSchema,
-  reference: z.string(),
-  title: z.string(),
-  createdAt: timestampSchema,
-  amount: amountSchema,
-  direction: z.enum(["credit", "debit"]),
-  currency: currencySchema,
-  medium: z.string(),
+  title: z.string().min(1),
+  type: transactionTypeSchema,
   status: transactionStatusSchema,
+  /** Signed: credits are positive, debits negative. */
+  amount: z
+    .number()
+    .finite()
+    .refine((value) => Math.abs(value * 100 - Math.round(value * 100)) < 0.000001, "Use at most two decimal places"),
+  date: timestampSchema,
 });
-export const transactionListQuerySchema = paginationQuerySchema
-  .extend({
-    search: z.string().trim().max(200).optional(),
-    status: transactionStatusSchema.optional(),
-    currency: currencySchema.optional(),
-    sort: z.enum(["recent", "oldest"]).default("recent"),
-    from: dateRangeSchema.shape.from,
-    to: dateRangeSchema.shape.to,
-  })
-  .refine((v) => !v.from || !v.to || v.from <= v.to, { path: ["to"], message: "End date must follow start date" });
-export const transactionListResponseSchema = paginatedSchema(transactionSchema);
-export const reportQuerySchema = z
-  .object({ currency: currencySchema.default("NGN"), from: dateRangeSchema.shape.from, to: dateRangeSchema.shape.to })
-  .refine((v) => !v.from || !v.to || v.from <= v.to, { path: ["to"], message: "End date must follow start date" });
-export const transactionReportResponseSchema = z.object({
-  currency: currencySchema,
-  totalBalance: amountSchema,
-  totalDeposits: amountSchema,
-  totalIncoming: amountSchema,
-  totalOutgoing: amountSchema,
-  history: z.array(z.object({ date: z.iso.date(), incoming: amountSchema, outgoing: amountSchema })),
-});
-export const creditStatusSchema = z.enum(["Active", "Pause", "Cancel"]);
-export const creditRowSchema = z.object({
-  key: resourceIdSchema,
-  title: z.string(),
-  card: z.string(),
-  detail: z.string(),
-  detailNote: z.string(),
-  balance: amountSchema,
-  interest: z.string(),
-  status: creditStatusSchema,
-});
-export const creditListQuerySchema = paginationQuerySchema.extend({
-  search: z.string().max(200).optional(),
-  status: creditStatusSchema.optional(),
-});
-export const creditListResponseSchema = paginatedSchema(creditRowSchema);
-export const updateCreditRequestSchema = z.strictObject({ status: creditStatusSchema });
+// GET /wallet/transactions returns a plain array, newest first.
+export const transactionListResponseSchema = z.array(transactionSchema);
+
 export const bankAccountSchema = z.object({
-  id: resourceIdSchema,
   bankName: z.string().min(1),
-  accountName: z.string().min(1),
-  maskedAccountNumber: z.string().min(1),
-  verified: z.boolean(),
+  accountNumber: z.string().regex(/^\d{10}$/, "Your account number must be 10 digits"),
+  accountName: z.string().trim().min(1, "Enter the account holder name"),
 });
-export const bankAccountsResponseSchema = z.array(bankAccountSchema);
-export const withdrawalQuoteRequestSchema = z.strictObject({
-  bankAccountId: resourceIdSchema,
-  amount: positiveAmountSchema,
-  currency: currencySchema,
+export const walletSchema = z.object({
+  balance: amountSchema,
+  pendingWithdrawals: amountSchema.default(0),
+  /** The investor's dedicated account; bank transfers to it fund the wallet. */
+  fundingAccount: bankAccountSchema,
+  /** `null` until the investor adds one; withdrawals need it. */
+  payoutAccount: bankAccountSchema.nullable(),
 });
-export const withdrawalQuoteResponseSchema = z.object({
-  id: resourceIdSchema,
-  amount: positiveAmountSchema,
-  fee: amountSchema,
-  totalDebit: positiveAmountSchema,
-  expiresAt: timestampSchema,
-});
-// No hard-coded demo balance here. The live server must check ownership, balance, PIN and verification.
-export const createWithdrawalRequestSchema = z.strictObject({
-  quoteId: resourceIdSchema,
-  pin: z.string().regex(/^\d{4}$/, "Enter your 4-digit PIN"),
+
+// POST /wallet/withdraw → Transaction. Mobile sends { amount, pin }.
+export const withdrawRequestSchema = z.strictObject({
+  amount: positiveAmountSchema.refine((value) => value >= MINIMUM_WITHDRAWAL, "Below the minimum withdrawal"),
+  pin: transactionPinSchema,
+  // Web additions, optional so the mobile body stays valid.
   authenticatorCode: z
     .string()
     .regex(/^\d{6}$/)
     .optional(),
-  idempotencyKey: z.uuid(),
+  idempotencyKey: idempotencyKeySchema.optional(),
 });
-export const withdrawalResponseSchema = z.object({
-  id: resourceIdSchema,
-  reference: z.string(),
-  amount: positiveAmountSchema,
-  fee: amountSchema,
-  currency: currencySchema,
-  status: z.enum(["pending", "processing", "settled", "failed", "cancelled"]),
-  createdAt: timestampSchema,
+// POST /wallet/fund/card → Transaction. Bank transfers to the funding account need no request.
+export const fundWithCardRequestSchema = z.strictObject({
+  amount: positiveAmountSchema.refine((value) => value >= MINIMUM_CARD_FUNDING, "Below the minimum top-up"),
+  idempotencyKey: idempotencyKeySchema.optional(),
 });
-export const withdrawalListResponseSchema = paginatedSchema(withdrawalResponseSchema);
-export type Transaction = z.infer<typeof transactionRowSchema>;
-export type Credit = z.infer<typeof creditRowSchema>;
+// Mobile's savePayoutAccount({ account, pin }); not on an endpoint in the app yet.
+export const savePayoutAccountRequestSchema = z.strictObject({
+  account: bankAccountSchema,
+  pin: transactionPinSchema,
+});
+
+export const fundingMethodSchema = z.enum(["bank", "card"]);
+export const fundingFormSchema = z
+  .object({ amount: positiveAmountSchema, method: fundingMethodSchema })
+  .refine((value) => value.method === "bank" || value.amount >= MINIMUM_CARD_FUNDING, {
+    path: ["amount"],
+    message: `Minimum top-up is ₦${MINIMUM_CARD_FUNDING.toLocaleString("en-NG")}`,
+  });
+
+export type TransactionType = z.infer<typeof transactionTypeSchema>;
+export type TransactionStatus = z.infer<typeof transactionStatusSchema>;
+export type Transaction = z.infer<typeof transactionSchema>;
+export type BankAccount = z.infer<typeof bankAccountSchema>;
+export type Wallet = z.infer<typeof walletSchema>;
+export type WithdrawRequest = z.infer<typeof withdrawRequestSchema>;
 export type FundingFormValues = z.input<typeof fundingFormSchema>;
-export type CreateWithdrawalRequest = z.infer<typeof createWithdrawalRequestSchema>;

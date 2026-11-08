@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { ADMIN_INVESTMENTS } from "./_data";
 
-const KEY = "citycore-admin-investments-v1";
+const KEY = "citycore-admin-investments-v2";
 const Context = React.createContext<{
   investments: AdminInvestment[];
   ready: boolean;

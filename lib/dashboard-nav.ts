@@ -8,6 +8,7 @@ import {
   Settings02Icon,
   ShoppingCart01Icon,
   Store01Icon,
+  UserAdd01Icon,
   Wallet01Icon,
 } from "@hugeicons/core-free-icons";
 import type { IconSvgElement } from "@hugeicons/react";
@@ -35,6 +36,7 @@ export const dashboardNavGroups: NavGroup[] = [
       { title: "Marketplace", url: "/marketplace", icon: Store01Icon },
       { title: "My Investments", url: "/investments", icon: ShoppingCart01Icon },
       { title: "Market Insights", url: "/market-insights", icon: ChartLineData01Icon },
+      { title: "Referrals", url: "/referrals", icon: UserAdd01Icon },
     ],
   },
   {

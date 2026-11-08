@@ -1,4 +1,4 @@
-import { Client$SecuritySettingsPage } from "@/app/dashboard/(dashboard)/settings/security/page.client";
+import { Client$SecuritySettingsPage } from "@/app/dashboard/(dashboard)/settings/security/page";
 
 import { SecurityExtras } from "../_security-extras";
 
