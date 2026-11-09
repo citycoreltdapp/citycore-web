@@ -21,6 +21,20 @@ export const EMAIL_DESK: EmailDesk = {
     },
     { userId: "CC-U077", name: "Ife Obi", email: "ife.obi@example.com", month: 1, day: 9, emailOptIn: true },
   ],
+  messages: [
+    {
+      id: "IH-0007",
+      audience: "staff",
+      subject: "Quarter-end payout freeze",
+      body: "Hi {{name}}, no payout batches go out between 29 and 31 December while we close the quarter.",
+      required: false,
+      recipientLabel: "Everyone",
+      delivered: 5,
+      skipped: 0,
+      sentBy: "Nneka Eze",
+      createdAt: "2026-11-05T09:15:00+01:00",
+    },
+  ],
   log: [
     {
       id: "EM-2041",

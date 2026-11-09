@@ -23,8 +23,19 @@ export const emailKindSchema = z.enum([
   "ticket-resolved",
   "birthday",
   "test",
+  "staff-memo",
+  "announcement",
 ]);
-export const emailGroupSchema = z.enum(["account", "codes", "money", "kyc", "helpdesk", "birthday", "staff"]);
+export const emailGroupSchema = z.enum([
+  "in-house",
+  "account",
+  "codes",
+  "money",
+  "kyc",
+  "helpdesk",
+  "birthday",
+  "staff",
+]);
 export const emailStatusSchema = z.enum(["queued", "sent", "failed", "skipped"]);
 
 export const EMAIL_KIND_META = {
@@ -48,6 +59,8 @@ export const EMAIL_KIND_META = {
   "ticket-resolved": { group: "helpdesk", label: "Ticket resolved", security: false },
   birthday: { group: "birthday", label: "Birthday", security: false },
   test: { group: "staff", label: "Test", security: true },
+  "staff-memo": { group: "in-house", label: "Staff memo", security: false },
+  announcement: { group: "in-house", label: "Announcement", security: false },
 } as const satisfies Record<
   z.infer<typeof emailKindSchema>,
   { group: z.infer<typeof emailGroupSchema>; label: string; security: boolean }
@@ -89,11 +102,45 @@ export const emailLogSchema = z.object({
   detail: z.string().max(500),
 });
 
+/** In-house mail written by an admin: a memo to staff or an announcement to investors. */
+export const inHouseAudienceSchema = z.enum(["staff", "investors"]);
+export const composeEmailFormSchema = z
+  .object({
+    audience: inHouseAudienceSchema,
+    recipientMode: z.enum(["everyone", "pick"]),
+    recipientIds: z.array(resourceIdSchema).max(5000),
+    subject: z.string().trim().min(1, "Add a subject").max(200),
+    body: z.string().trim().min(1, "Write the message").max(10000),
+    /** A required notice reaches investors who turned email off. Use it for policy, legal or security notices only. */
+    required: z.boolean(),
+  })
+  .refine((value) => value.recipientMode === "everyone" || value.recipientIds.length > 0, {
+    path: ["recipientIds"],
+    message: "Choose at least one person",
+  });
+export const inHouseMessageSchema = z.object({
+  id: resourceIdSchema,
+  audience: inHouseAudienceSchema,
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(10000),
+  required: z.boolean(),
+  /** "Everyone" or the number of people picked, as shown in the list. */
+  recipientLabel: z.string().min(1),
+  delivered: z.number().int().nonnegative(),
+  skipped: z.number().int().nonnegative(),
+  sentBy: z.string().min(1),
+  createdAt: timestampSchema,
+});
+
 export const emailDeskSchema = z.object({
   settings: birthdaySettingsSchema,
   people: z.array(birthdayPersonSchema),
   log: z.array(emailLogSchema),
+  // Defaults to empty so desks saved before in-house mail existed still load.
+  messages: z.array(inHouseMessageSchema).default([]),
 });
 export type EmailDesk = z.infer<typeof emailDeskSchema>;
 export type EmailLogEntry = z.infer<typeof emailLogSchema>;
 export type BirthdayPerson = z.infer<typeof birthdayPersonSchema>;
+export type ComposeEmailForm = z.infer<typeof composeEmailFormSchema>;
+export type InHouseMessage = z.infer<typeof inHouseMessageSchema>;
