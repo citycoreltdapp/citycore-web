@@ -32,6 +32,11 @@ export const transactionListResponseSchema = z.array(transactionSchema);
 
 export const bankAccountSchema = z.object({
   bankName: z.string().min(1),
+  /** CBN / NIP bank code. Optional so the mobile payload, which sends only the name, stays valid. */
+  bankCode: z
+    .string()
+    .regex(/^\d{3,6}$/)
+    .optional(),
   accountNumber: z.string().regex(/^\d{10}$/, "Your account number must be 10 digits"),
   accountName: z.string().trim().min(1, "Enter the account holder name"),
 });

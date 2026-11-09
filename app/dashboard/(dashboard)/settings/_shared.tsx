@@ -19,7 +19,7 @@ export function SettingsNavigation() {
   return (
     <nav aria-label="Settings sections" className="flex w-fit gap-1 rounded-full bg-muted p-1">
       {SECTIONS.map(({ href, label }) => {
-        const isCurrent = (href === "/settings/security") === isSecurity;
+        const isCurrent = href.endsWith("/security") === isSecurity;
         return (
           <Link
             key={href}

@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { BankLogo, findBank } from "@/components/primitives/bank-select-field";
 import { DataTable } from "@/components/primitives/data-table";
 import { NumberField } from "@/components/primitives/number-field";
 import { OtpField } from "@/components/primitives/otp-field";
@@ -19,16 +20,16 @@ import {
 } from "@/constant/withdrawal";
 import { toApi } from "@/lib/api";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BankIcon, CheckmarkBadge01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
+import { CheckmarkBadge01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
-import Link from "next/link";
 import { Controller, FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { TRANSACTIONS, type Transaction } from "../transactions/_data";
 import { TRANSACTION_COLUMNS } from "../transactions/_transaction-ui";
-import { WALLET, maskedAccount } from "../wallet/_data";
+import { type BankAccount, WALLET, maskedAccount } from "../wallet/_data";
+import { openPayoutAccountModal } from "./_payout-account-modal";
 
 const MAX_AMOUNT = WALLET.balance;
 const QUICK_AMOUNTS = [
@@ -38,10 +39,15 @@ const QUICK_AMOUNTS = [
   { label: "Max", value: MAX_AMOUNT },
 ];
 
-function WithdrawalDetailsCard() {
+function WithdrawalDetailsCard({
+  payout,
+  onPayoutChange,
+}: {
+  payout: BankAccount | null;
+  onPayoutChange: (account: BankAccount) => void;
+}) {
   const { control, setValue } = useFormContext<WithdrawalFormData>();
   const amount = useWatch({ control, name: "amount" });
-  const payout = WALLET.payoutAccount;
 
   return (
     <Card className="min-w-0 gap-0 rounded-2xl py-0 ring-foreground/8">
@@ -81,15 +87,20 @@ function WithdrawalDetailsCard() {
       <div className="flex flex-col gap-3 border-t border-border p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-base font-semibold">Send to</h2>
-          <Link href="/dashboard/wallet" className="text-sm font-semibold text-primary underline-offset-4 hover:underline">
+          <button
+            type="button"
+            onClick={() => openPayoutAccountModal({ current: payout, onSave: onPayoutChange })}
+            className="text-sm font-semibold text-primary underline-offset-4 hover:underline"
+          >
             {payout ? "Change" : "Add payout account"}
-          </Link>
+          </button>
         </div>
         {payout ? (
           <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/40 p-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-              <HugeiconsIcon icon={BankIcon} aria-hidden className="size-5" />
-            </span>
+            <BankLogo
+              bank={findBank({ code: payout.bankCode, name: payout.bankName }) ?? { name: payout.bankName, logo: null }}
+              className="size-10"
+            />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold">
                 {payout.bankName} · {maskedAccount(payout)}
@@ -175,6 +186,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 const FLUID_SLOT = "h-11 flex-1 size-auto sm:size-auto sm:h-11";
 
 function WithdrawalSummaryCard({
+  payout,
   amount,
   totalDebit,
   isReviewable,
@@ -182,6 +194,7 @@ function WithdrawalSummaryCard({
   canConfirm,
   onReview,
 }: {
+  payout: BankAccount | null;
   amount: number;
   totalDebit: number;
   isReviewable: boolean;
@@ -190,7 +203,6 @@ function WithdrawalSummaryCard({
   onReview: () => void;
 }) {
   const { control } = useFormContext<WithdrawalFormData>();
-  const payout = WALLET.payoutAccount;
 
   return (
     <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
@@ -286,12 +298,14 @@ export default function Client$WithdrawalsPage() {
     mode: "onTouched",
   });
   const amount = useWatch({ control: form.control, name: "amount" });
+  const [payout, setPayout] = React.useState(WALLET.payoutAccount);
 
-  const detailsKey = String(amount);
+  // A new amount or payout account needs a fresh review.
+  const detailsKey = `${amount}:${payout?.bankName}:${payout?.accountNumber}`;
   const [reviewedKey, setReviewedKey] = React.useState<string | null>(null);
   const isReviewed = reviewedKey === detailsKey;
 
-  const isReviewable = !!WALLET.payoutAccount && DETAILS_SCHEMA.safeParse({ amount }).success && !isReviewed;
+  const isReviewable = !!payout && DETAILS_SCHEMA.safeParse({ amount }).success && !isReviewed;
   const canConfirm = isReviewed && form.formState.isValid;
   const totalDebit = amount ? amount + WITHDRAWAL_FEE : 0;
 
@@ -311,7 +325,7 @@ export default function Client$WithdrawalsPage() {
       authenticatorCode: authenticatorCode || undefined,
       idempotencyKey: crypto.randomUUID(),
     });
-    toast.success(`${formatNaira(amount)} is on its way to ${WALLET.payoutAccount?.bankName}.`);
+    toast.success(`${formatNaira(amount)} is on its way to ${payout?.bankName}.`);
     form.reset();
     setReviewedKey(null);
   };
@@ -340,9 +354,16 @@ export default function Client$WithdrawalsPage() {
           }}
           className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_1fr]"
         >
-          <WithdrawalDetailsCard />
+          <WithdrawalDetailsCard
+            payout={payout}
+            onPayoutChange={(account) => {
+              setPayout(account);
+              toast.success(`Withdrawals now go to ${account.bankName} ${maskedAccount(account)}.`);
+            }}
+          />
           <aside className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1">
             <WithdrawalSummaryCard
+              payout={payout}
               amount={amount ?? 0}
               totalDebit={totalDebit}
               isReviewable={isReviewable}

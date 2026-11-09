@@ -208,7 +208,7 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
           investment ? `${investment.name} · local changes only` : "Prepare a new offering for publication review."
         }
       >
-        <PageLink href={investment ? `/investments/${investment.id}` : "/investments"}>Cancel</PageLink>
+        <PageLink href={investment ? `/admin/investments/${investment.id}` : "/admin/investments"}>Cancel</PageLink>
       </PageTitle>
       <form noValidate onSubmit={form.handleSubmit(review)} className="space-y-5">
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_25rem]">

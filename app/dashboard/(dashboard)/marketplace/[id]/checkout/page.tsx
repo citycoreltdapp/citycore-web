@@ -401,7 +401,7 @@ export default function InvestmentCheckoutPage() {
   const estimate = estimateInvestment(property, isValid ? units : 0, WALLET.balance);
   const [receipt, setReceipt] = useState<InvestmentReceipt | null>(null);
   const confirmed = receipt !== null;
-  const changeHref = `/marketplace/${property.id}${isValid ? `?units=${units}` : ""}`;
+  const changeHref = `/dashboard/marketplace/${property.id}${isValid ? `?units=${units}` : ""}`;
 
   if (!isValid)
     return (

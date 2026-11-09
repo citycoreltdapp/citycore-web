@@ -22,7 +22,6 @@ import {
   Coins01Icon,
   Copy01Icon,
   Link01Icon,
-  Share08Icon,
   Tick02Icon,
   UserMultiple02Icon,
 } from "@hugeicons/core-free-icons";
@@ -32,8 +31,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 
 import { naira } from "../marketplace/page";
-
-const invitePath = (code: string) => `/dashboard/signup?ref=${code}`;
+import { SharePopover, shortInviteLink } from "./_share-popover";
 
 function useCopy() {
   const [copied, setCopied] = useState<string | null>(null);
@@ -65,19 +63,6 @@ const STEPS = [
 
 function InviteCard({ code }: { code: string }) {
   const { copied, copy } = useCopy();
-  const inviteLink = () => `${window.location.origin}${invitePath(code)}`;
-  const share = async () => {
-    const data = {
-      title: "Join me on City Core",
-      text: `Use my referral code ${code} when you sign up for City Core.`,
-      url: inviteLink(),
-    };
-    if (navigator.share) {
-      await navigator.share(data).catch(() => undefined);
-    } else {
-      await copy("link", data.url, "Invite link copied");
-    }
-  };
 
   return (
     <section className="relative flex min-w-0 flex-col overflow-hidden rounded-2xl bg-[#121212] text-white">
@@ -113,20 +98,12 @@ function InviteCard({ code }: { code: string }) {
           <Button
             variant="ghost"
             className="h-11 rounded-full border border-white/15 bg-white/5 px-5 text-white hover:bg-white/10 hover:text-white"
-            onClick={() => copy("link", inviteLink(), "Invite link copied")}
+            onClick={() => copy("link", shortInviteLink(code), "Invite link copied")}
           >
             <HugeiconsIcon icon={copied === "link" ? Tick02Icon : Link01Icon} aria-hidden />
             {copied === "link" ? "Link copied" : "Copy invite link"}
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Share invite"
-            className="size-11 rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-white"
-            onClick={share}
-          >
-            <HugeiconsIcon icon={Share08Icon} aria-hidden />
-          </Button>
+          <SharePopover code={code} />
         </div>
       </div>
 

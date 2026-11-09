@@ -196,7 +196,7 @@ const FILTER_TRIGGER = "h-10! w-full rounded-full bg-card px-3.5 lg:w-auto lg:mi
 export function PropertyCard({
   property,
   index,
-  href = `/marketplace/${property.id}`,
+  href = `/dashboard/marketplace/${property.id}`,
   statusLabel = PROPERTY_STATUS_LABELS[property.status],
   imageSrc,
 }: {

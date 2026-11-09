@@ -3,13 +3,16 @@ import type { BankAccount, Wallet } from "@/constant/schemas/finance";
 
 export type { BankAccount, Wallet } from "@/constant/schemas/finance";
 
-export const PAYOUT_BANKS = ["Access Bank", "First Bank", "GTBank", "UBA", "Wema Bank", "Zenith Bank"];
-
 export const WALLET: Wallet = {
   balance: 1_250_000,
   pendingWithdrawals: 150_000,
   fundingAccount: { bankName: "Wema Bank", accountNumber: "8123456790", accountName: "City Core / Ada Okafor" },
-  payoutAccount: { bankName: "GTBank", accountNumber: "0124834821", accountName: "Ada Chiamaka Okafor" },
+  payoutAccount: {
+    bankName: "GTBank",
+    bankCode: "058",
+    accountNumber: "0124834821",
+    accountName: "Ada Chiamaka Okafor",
+  },
 };
 
 /** Same as the mobile BankAccount.masked getter. */
