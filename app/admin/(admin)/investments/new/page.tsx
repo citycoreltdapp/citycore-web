@@ -4,7 +4,6 @@ import * as React from "react";
 import { naira } from "@/app/dashboard/(dashboard)/marketplace/page";
 import { AppModal } from "@/components/primitives/app-modal";
 import { DateField } from "@/components/primitives/date-field";
-import { FileUpload } from "@/components/primitives/file-upload";
 import { NumberField } from "@/components/primitives/number-field";
 import { SelectField } from "@/components/primitives/select-field";
 import { TextAreaField, TextField } from "@/components/primitives/text-field";
@@ -15,9 +14,9 @@ import {
   type AdminInvestment,
   type AdminInvestmentForm,
   adminInvestmentFormSchema,
-  investmentCoverFileSchema,
   publishAdminInvestmentSchema,
 } from "@/constant/schemas/admin-investments";
+import type { MediaAsset } from "@/constant/schemas/admin-media";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -26,8 +25,18 @@ import { toast } from "sonner";
 
 import { STAFF } from "../../_operations/data";
 import { Notice, PageLink, PageTitle, Panel, StatusBadge } from "../../_operations/ui";
+import { IMAGE_TYPES, MediaSlot, openMediaPicker } from "../../media/_library";
 import { BASIS_ITEMS, FREQUENCY_ITEMS, IMAGE_ITEMS, TYPE_ITEMS, maturityDate } from "../_data";
 import { useAdminInvestments } from "../_store";
+
+// Sample library files that are one of the built-in property illustrations.
+const PRESET_BY_ASSET: Record<string, AdminInvestmentForm["image"]> = {
+  "MD-01": "golden-estate",
+  "MD-04": "waterfront",
+  "MD-05": "skyline",
+  "MD-06": "residences",
+  "MD-07": "city-lights",
+};
 
 const DEFAULTS: AdminInvestmentForm = {
   name: "",
@@ -75,39 +84,25 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
       : DEFAULTS,
   });
   const values = useWatch({ control: form.control });
-  const [uploading, setUploading] = React.useState(false);
   const [uploadName, setUploadName] = React.useState("");
+  const [coverAsset, setCoverAsset] = React.useState<MediaAsset | null>(null);
   const [saved, setSaved] = React.useState(false);
-  const readerRef = React.useRef<FileReader | null>(null);
-  React.useEffect(
-    () => () => {
-      readerRef.current?.abort();
-    },
-    []
-  );
-  const upload = (files: File[]) => {
-    const parsed = investmentCoverFileSchema.safeParse(files[0]);
-    if (!parsed.success) {
-      form.setError("coverPreview", { message: parsed.error.issues[0].message });
+  // Library illustrations map back to their preset; other images use the library's saved preview.
+  const applyLibraryCover = (asset: MediaAsset) => {
+    const preset = PRESET_BY_ASSET[asset.id];
+    if (preset) {
+      form.setValue("image", preset, { shouldDirty: true });
+      form.setValue("coverPreview", undefined, { shouldDirty: true, shouldValidate: true });
+      setUploadName("");
       return;
     }
-    readerRef.current?.abort();
-    const reader = new FileReader();
-    readerRef.current = reader;
-    setUploading(true);
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        form.setValue("coverPreview", reader.result, { shouldValidate: true, shouldDirty: true });
-        setUploadName(parsed.data.name);
-      }
-      setUploading(false);
-    };
-    reader.onerror = () => {
-      form.setError("coverPreview", { message: "Couldn't read this image. Try another file." });
-      setUploading(false);
-    };
-    reader.onabort = () => setUploading(false);
-    reader.readAsDataURL(parsed.data);
+    if (!asset.preview) {
+      form.setError("coverPreview", { message: "This image has no preview yet. Upload it again in the library." });
+      return;
+    }
+    form.setValue("coverPreview", asset.preview, { shouldDirty: true, shouldValidate: true });
+    setUploadName(asset.name);
+    setCoverAsset(asset);
   };
   const allocated = investment?.unitsSold ?? 0;
   const persist = (data: AdminInvestmentForm, publicationStatus: "draft" | "pending-review") => {
@@ -325,35 +320,32 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
                   />
                 )}
               />
-              <FileUpload
-                id="offering-upload"
-                label="Upload cover photo"
-                description="JPG, PNG or WebP · up to 2 MB · saved in this browser"
-                browseLabel="Choose cover image"
-                disabled={uploading}
-                dropzoneAccept={{ "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"], "image/webp": [".webp"] }}
-                dropzoneMaxSize={2 * 1024 * 1024}
-                dropzoneMaxFiles={1}
-                onFilesAdded={upload}
-                onFilesRejected={() =>
-                  form.setError("coverPreview", { message: "Choose a JPG, PNG or WebP image up to 2 MB" })
+              <MediaSlot
+                label="Custom cover"
+                hint="Pick a photo from the media library or upload one there"
+                asset={values.coverPreview ? coverAsset : null}
+                name={values.coverPreview ? uploadName || "Custom cover" : undefined}
+                onPick={() =>
+                  openMediaPicker({
+                    title: "Choose a cover",
+                    accept: IMAGE_TYPES,
+                    onSelect: ([asset]) => applyLibraryCover(asset),
+                  })
                 }
                 error={form.formState.errors.coverPreview?.message}
               />
               {values.coverPreview && (
-                <div className="flex items-center justify-between gap-3 text-sm">
-                  <p className="truncate text-muted-foreground">{uploadName || "Custom cover saved in this browser"}</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      form.setValue("coverPreview", undefined, { shouldDirty: true, shouldValidate: true });
-                      setUploadName("");
-                    }}
-                  >
-                    Use illustration
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-fit rounded-full"
+                  onClick={() => {
+                    form.setValue("coverPreview", undefined, { shouldDirty: true, shouldValidate: true });
+                    setUploadName("");
+                  }}
+                >
+                  Use the illustration instead
+                </Button>
               )}
               <Controller
                 name="description"
@@ -539,14 +531,14 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
             </Panel>
             <Panel title="Publication" description="Save your work or request a review">
               <StatusBadge value={investment?.publicationStatus ?? "draft"} />
-              <Button className="w-full" type="submit" disabled={uploading || saved}>
+              <Button className="w-full" type="submit" disabled={saved}>
                 Review publication changes
               </Button>
               <Button
                 className="w-full"
                 variant="outline"
                 type="button"
-                disabled={uploading || saved}
+                disabled={saved}
                 onClick={form.handleSubmit((data) => {
                   if (validateAllocation(data)) persist(data, "draft");
                 })}

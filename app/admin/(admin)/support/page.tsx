@@ -3,7 +3,6 @@
 import * as React from "react";
 
 import { AppModal } from "@/components/primitives/app-modal";
-import { FileUpload } from "@/components/primitives/file-upload";
 import { SearchField } from "@/components/primitives/search-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,7 +14,6 @@ import {
   adminSupportStateSchema,
   adminTicketFormSchema,
   type adminTicketSchema,
-  supportAttachmentFileSchema,
   supportAttachmentSchema,
 } from "@/constant/schemas/admin-support";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -43,48 +41,24 @@ import { usePreviewState } from "../_operations/use-preview-state";
 import { SUPPORT_DEFAULTS } from "../_operations/workspace-data";
 import { FilterChips, StatusPill, formatDate, formatTime } from "../account/page";
 import { ageLabel } from "../kyc/page";
+import { openMediaPicker } from "../media/_library";
 import { Initials } from "../users/page";
 
 type Attachment = z.infer<typeof supportAttachmentSchema>;
 
+// Evidence comes from the shared media library, so a file uploaded once can be attached anywhere.
 function openUpload(files: Attachment[], onChange: (files: Attachment[]) => void) {
-  AppModal.open({
+  openMediaPicker({
     title: "Attach evidence",
-    description: "PDF, JPG or PNG · 10 MB each · up to 5 files",
-    content: (
-      <div className="space-y-4">
-        <FileUpload
-          id="support-evidence-upload"
-          dropzoneMultiple
-          dropzoneMaxFiles={5 - files.length}
-          dropzoneMaxSize={10 * 1024 * 1024}
-          disabled={files.length >= 5}
-          dropzoneAccept={{
-            "application/pdf": [".pdf"],
-            "image/png": [".png"],
-            "image/jpeg": [".jpg", ".jpeg"],
-          }}
-          onFilesRejected={() => toast.error("Use up to 5 PDF, PNG or JPG files, each under 10 MB")}
-          onFilesAdded={(added) => {
-            const next: Attachment[] = [];
-            for (const file of added) {
-              const parsed = supportAttachmentFileSchema.safeParse(file);
-              if (!parsed.success) {
-                toast.error(parsed.error.issues[0].message);
-                continue;
-              }
-              const meta = supportAttachmentSchema.safeParse({ name: file.name, size: file.size, type: file.type });
-              if (meta.success) next.push(meta.data);
-            }
-            onChange([...files, ...next].slice(0, 5));
-            AppModal.close();
-          }}
-        />
-        <p className="rounded-xl bg-muted/60 px-4 py-3 text-xs/5 text-muted-foreground">
-          Never attach passwords, PINs or OTPs. Only file names and sizes are kept; nothing is uploaded.
-        </p>
-      </div>
-    ),
+    accept: ["application/pdf", "image/png", "image/jpeg"],
+    multiple: true,
+    max: 5 - files.length,
+    onSelect: (assets) => {
+      const next = assets
+        .map((asset) => supportAttachmentSchema.safeParse({ name: asset.name, size: asset.bytes, type: asset.type }))
+        .flatMap((parsed) => (parsed.success ? [parsed.data] : []));
+      onChange([...files, ...next].slice(0, 5));
+    },
   });
 }
 

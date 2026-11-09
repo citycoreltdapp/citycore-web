@@ -3,7 +3,6 @@
 import * as React from "react";
 
 import { AppModal } from "@/components/primitives/app-modal";
-import { FileUpload, type FileUploadItem } from "@/components/primitives/file-upload";
 import { SelectField } from "@/components/primitives/select-field";
 import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ import {
   blogPostSchema,
   blogPublishRequestSchema,
 } from "@/constant/schemas/admin-blog";
-import { inspectMedia, previewAssetUrl } from "@/lib/media-preview";
+import type { MediaAsset } from "@/constant/schemas/admin-media";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { cn } from "cn";
@@ -26,6 +25,7 @@ import { Notice } from "../_operations/ui";
 import { usePreviewState } from "../_operations/use-preview-state";
 import { FilterChips, SegmentBar, StatusPill, formatDate, toneBar, toneDot } from "../account/page";
 import { CardHeader } from "../content/page";
+import { IMAGE_TYPES, MediaSlot, openMediaPicker } from "../media/_library";
 import { BLOG_CATEGORIES, BLOG_DESK } from "./_data";
 
 const STATUS_TONE = { draft: "muted", published: "success", archived: "warning" } as const;
@@ -72,11 +72,8 @@ function PostComposer({
 }) {
   const [post, setPost] = React.useState(initial);
   const [tags, setTags] = React.useState(initial.tags.join(", "));
-  const [cover, setCover] = React.useState<FileUploadItem[]>(
-    initial.coverName
-      ? [{ id: "cover", name: initial.coverName, size: initial.coverName.length, status: "completed" }]
-      : []
-  );
+  // The picked library file, for its thumbnail. Older posts only kept the cover's name and address.
+  const [coverAsset, setCoverAsset] = React.useState<MediaAsset | null>(null);
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [StarterKit],
@@ -99,8 +96,8 @@ function PostComposer({
         .split(",")
         .map((item) => item.trim())
         .filter(Boolean),
-      coverName: cover[0]?.name,
-      coverUrl: cover[0] ? post.coverUrl : undefined,
+      coverName: post.coverName,
+      coverUrl: post.coverName ? post.coverUrl : undefined,
       status,
       updatedAt: "2026-11-08T12:00:00+01:00",
     });
@@ -186,30 +183,23 @@ function PostComposer({
               value={post.excerpt}
               onChange={(excerpt) => setPost({ ...post, excerpt })}
             />
-            <FileUpload
-              id="post-cover"
+            <MediaSlot
               label="Cover"
-              title="Add a cover image"
-              description="JPEG, PNG or WebP, up to 5 MB."
-              items={cover}
-              dropzoneAccept={{ "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"], "image/webp": [".webp"] }}
-              dropzoneMaxSize={5_000_000}
-              dropzoneMultiple={false}
-              onFilesAdded={(files) => {
-                const file = files[0];
-                if (!file) return;
-                const checked = inspectMedia(file.type, file.size);
-                if (!checked.ok || checked.folder !== "images") {
-                  toast.error(checked.ok ? "Use a JPEG, PNG or WebP" : checked.message);
-                  return;
-                }
-                const id = `CV-${Date.now().toString().slice(-6)}`;
-                setCover([{ id, name: file.name, size: file.size, status: "completed" }]);
-                setPost((current) => ({ ...current, coverName: file.name, coverUrl: previewAssetUrl("images", id) }));
-              }}
-              onFilesRejected={() => toast.error("Use a JPEG, PNG or WebP up to 5 MB")}
-              onRemove={() => {
-                setCover([]);
+              hint="JPEG, PNG or WebP from the media library"
+              asset={coverAsset}
+              name={post.coverName}
+              onPick={() =>
+                openMediaPicker({
+                  title: "Choose a cover",
+                  accept: IMAGE_TYPES,
+                  onSelect: ([asset]) => {
+                    setCoverAsset(asset);
+                    setPost((current) => ({ ...current, coverName: asset.name, coverUrl: asset.url }));
+                  },
+                })
+              }
+              onClear={() => {
+                setCoverAsset(null);
                 setPost((current) => ({ ...current, coverName: undefined, coverUrl: undefined }));
               }}
             />

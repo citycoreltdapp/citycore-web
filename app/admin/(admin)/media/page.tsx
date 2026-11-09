@@ -6,52 +6,19 @@ import { AppModal } from "@/components/primitives/app-modal";
 import { FileUpload } from "@/components/primitives/file-upload";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { type MediaAsset, mediaDeskSchema } from "@/constant/schemas/admin-media";
-import { inspectMedia, previewAssetUrl } from "@/lib/media-preview";
+import type { MediaAsset } from "@/constant/schemas/admin-media";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
-import Image from "next/image";
 import { toast } from "sonner";
 
-import { usePreviewState } from "../_operations/use-preview-state";
 import { FilterChips, formatDate } from "../account/page";
-import { MEDIA_DESK } from "./_data";
+import { MediaThumb, TYPE_LABEL, sizeLabel, toAssets, useMediaLibrary } from "./_library";
 
 const folders = ["all", "images", "documents"] as const;
 
-const TYPE_LABEL = {
-  "image/jpeg": "JPEG",
-  "image/png": "PNG",
-  "image/webp": "WebP",
-  "application/pdf": "PDF",
-} as const;
-
-const FIXTURE_PREVIEW: Record<string, string> = {
-  "MD-01": "/assets/images/marketplace/golden-estate.png",
-  "MD-02": "/assets/images/logo.png",
-  "MD-04": "/assets/images/marketplace/waterfront.png",
-  "MD-05": "/assets/images/marketplace/skyline.png",
-  "MD-06": "/assets/images/marketplace/residences.png",
-  "MD-07": "/assets/images/marketplace/city-lights.png",
-  "MD-08": "/assets/images/investors/investor-avatar-01.jpg",
-  "MD-10": "/assets/images/admin/publicity-hd.png",
-};
-
-const sizeLabel = (bytes: number) =>
-  bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.ceil(bytes / 1000)} KB`;
-
 export default function MediaPage() {
-  // shortcut: a new key so this set shows even if the browser kept the old three-file copy.
-  const desk = usePreviewState("citycore.admin.media.v2", mediaDeskSchema, MEDIA_DESK);
+  const desk = useMediaLibrary();
   const [folder, setFolder] = React.useState<(typeof folders)[number]>("all");
-  const [local, setLocal] = React.useState<Record<string, string>>({});
-  const localRef = React.useRef(local);
-
-  React.useEffect(() => {
-    return () => {
-      Object.values(localRef.current).forEach((url) => URL.revokeObjectURL(url));
-    };
-  }, []);
 
   const assets = desk.value.assets.filter((asset) => folder === "all" || asset.folder === folder);
 
@@ -59,51 +26,17 @@ export default function MediaPage() {
     if (desk.save({ assets: next })) toast.success(message);
   };
 
-  const onFiles = (files: File[]) => {
-    const added: MediaAsset[] = [];
-    const previews: Record<string, string> = {};
-    files.forEach((file, index) => {
-      const checked = inspectMedia(file.type, file.size);
-      if (!checked.ok) {
-        toast.error(checked.message);
-        return;
-      }
-      const id = `MD-${Date.now().toString().slice(-6)}${index}`;
-      const parsed = mediaDeskSchema.shape.assets.element.safeParse({
-        id,
-        name: file.name,
-        alt: "",
-        type: file.type,
-        bytes: file.size,
-        folder: checked.folder,
-        url: previewAssetUrl(checked.folder, id),
-        updatedAt: "2026-11-08T12:00:00+01:00",
-      });
-      if (!parsed.success) {
-        toast.error(parsed.error.issues[0].message);
-        return;
-      }
-      added.push(parsed.data);
-      if (checked.folder === "images") previews[id] = URL.createObjectURL(file);
-    });
-    if (!added.length) return;
-    localRef.current = { ...previews, ...localRef.current };
-    setLocal(localRef.current);
-    save([...added, ...desk.value.assets], added.length === 1 ? "File added" : `${added.length} files added`);
+  const onFiles = async (files: File[]) => {
+    const added = await toAssets(files);
+    if (added.length)
+      save([...added, ...desk.value.assets], added.length === 1 ? "File added" : `${added.length} files added`);
   };
 
-  const remove = (asset: MediaAsset) => {
-    const url = localRef.current[asset.id];
-    if (url) URL.revokeObjectURL(url);
-    const next = { ...localRef.current };
-    delete next[asset.id];
-    localRef.current = next;
-    setLocal(next);
+  const remove = (asset: MediaAsset) =>
     save(
       desk.value.assets.filter((item) => item.id !== asset.id),
       "File removed"
     );
-  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -152,7 +85,7 @@ export default function MediaPage() {
           <li key={asset.id}>
             <Card className="group h-full gap-0 overflow-hidden rounded-2xl py-0 ring-foreground/8">
               <div className="relative bg-muted">
-                <MediaPreview asset={asset} localSrc={local[asset.id]} />
+                <MediaThumb asset={asset} />
                 <Button
                   type="button"
                   variant="outline"
@@ -197,35 +130,5 @@ export default function MediaPage() {
         ))}
       </ul>
     </div>
-  );
-}
-
-function MediaPreview({ asset, localSrc }: { asset: MediaAsset; localSrc?: string }) {
-  if (asset.folder === "documents") {
-    return (
-      <div className="flex aspect-4/3 flex-col justify-between p-4">
-        <span className="w-fit rounded bg-destructive px-1.5 py-0.5 text-[10px] font-bold text-white">PDF</span>
-        <p className="line-clamp-3 text-sm leading-5 font-medium">{asset.name.replace(/\.pdf$/i, "")}</p>
-      </div>
-    );
-  }
-
-  const src = localSrc ?? FIXTURE_PREVIEW[asset.id];
-  if (!src) return <div className="aspect-4/3" />;
-  if (src.startsWith("blob:")) {
-    return (
-      // Local file preview. Next Image cannot take a blob address.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt={asset.alt || asset.name} className="aspect-4/3 w-full object-cover" />
-    );
-  }
-  return (
-    <Image
-      src={src}
-      alt={asset.alt || asset.name}
-      width={640}
-      height={480}
-      className="aspect-4/3 w-full object-cover"
-    />
   );
 }
