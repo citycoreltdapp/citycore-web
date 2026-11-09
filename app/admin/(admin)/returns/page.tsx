@@ -2,15 +2,18 @@
 
 import * as React from "react";
 
+import { ResourceField, ResourceFieldItem } from "@/components/primitives/resource-field";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { AdminInvestment } from "@/constant/schemas/admin-investments";
+import { adminTaxSettingsSchema } from "@/constant/schemas/admin-settings";
 import {
   type ReturnScheduleForm,
   accrualOverrideFormSchema,
   maturityFormSchema,
   returnScheduleFormSchema,
 } from "@/constant/schemas/admin-treasury";
-import { previewCsv, previewDividends } from "@/lib/treasury-preview";
+import { type ReturnOffering, accrualDays, previewCsv, previewDividends } from "@/lib/treasury-preview";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowRight01Icon, Download04Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -20,36 +23,68 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { useReviewRequests } from "../_operations/requests";
-import { DISBURSEMENT_HISTORY, RETURN_COHORTS } from "../_operations/treasury-data";
+import { DISBURSEMENT_HISTORY } from "../_operations/treasury-data";
 import { FinanceDate, FinanceNumber, FinanceText, downloadCsv, money, reviewBatch } from "../_operations/treasury-ui";
 import { Notice } from "../_operations/ui";
-import { FilterChips, SegmentBar, StatusPill, formatDate } from "../account/page";
+import { usePreviewState } from "../_operations/use-preview-state";
+import { TAX_DEFAULTS, TAX_SETTINGS_KEY } from "../_operations/workspace-data";
+import { AS_OF } from "../account/_data";
+import { SegmentBar, StatusPill, formatDate } from "../account/page";
+import { FREQUENCY_ITEMS, maturityDate } from "../investments/_data";
+import { useAdminInvestments } from "../investments/_store";
 import { DetailList } from "../users/page";
 
 const DEFAULTS: ReturnScheduleForm = {
   propertyId: "all",
-  basis: "30/360",
-  annualRate: 16,
-  frequency: "quarterly",
   periodStart: "2026-07-01",
   periodEnd: "2026-09-30",
   creditDate: "2026-10-31",
-  withholdingRate: 10,
   reason: "Quarterly distribution schedule for compliance review",
 };
+// Roughly how many days each payout frequency covers, to flag a period that doesn't fit a property's schedule.
+const FREQUENCY_DAYS = { monthly: 30, quarterly: 91, annual: 365 } as const;
+const frequencyLabel = (value: string) => FREQUENCY_ITEMS.find((item) => item.value === value)?.label ?? value;
 const REQUEST_KINDS = ["dividend-batch", "principal-batch", "accrual-override", "return-schedule"];
 const HISTORY_STATUS = {
   successful: { tone: "success", label: "Paid" },
   pending: { tone: "warning", label: "Pending" },
   failed: { tone: "danger", label: "Failed" },
 } as const;
-const MATURITY_LINES = [
-  { name: "Golden Estate", principal: 3_000_000, className: "bg-foreground" },
-  { name: "Silver City", principal: 2_000_000, className: "bg-accent" },
-];
-const MATURITY_TOTAL = MATURITY_LINES.reduce((total, line) => total + line.principal, 0);
 const EXISTING_ACCRUAL = 4000;
-const COHORT_COLORS = ["bg-foreground", "bg-accent"];
+const COHORT_COLORS = ["bg-foreground", "bg-accent", "bg-foreground/50", "bg-accent/50"];
+
+/** Investments paying returns: live and with units sold. Terms come from the investment, not this page. */
+const toOffering = (i: AdminInvestment): ReturnOffering => ({
+  id: i.id,
+  name: i.name,
+  units: i.unitsSold,
+  principal: i.unitsSold * i.unitPrice,
+  annualRate: i.targetRoi,
+  basis: i.accrualBasis,
+  frequency: i.payoutFrequency,
+});
+type PropertyOption = Pick<ReturnOffering, "id" | "name" | "units" | "principal"> & { terms?: ReturnOffering };
+
+const daysUntil = (date: string) => Math.round((Date.parse(date) - Date.parse(AS_OF)) / 86_400_000);
+
+function PropertyMark({ option }: { option: PropertyOption }) {
+  return (
+    <span
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center rounded-lg text-[10px] font-semibold",
+        option.id === "all" ? "bg-foreground text-background" : "bg-accent/20 text-foreground"
+      )}
+    >
+      {option.id === "all"
+        ? "ALL"
+        : option.name
+            .split(" ")
+            .map((word) => word[0])
+            .join("")
+            .slice(0, 2)}
+    </span>
+  );
+}
 
 function Section({ step, title, children }: { step: number; title: string; children: React.ReactNode }) {
   return (
@@ -79,6 +114,21 @@ function CardHeader({ title, note, children }: { title: string; note?: string; c
 
 export default function ReturnsPage() {
   const { submit, requests, ready } = useReviewRequests();
+  const { investments } = useAdminInvestments();
+  const taxSettings = usePreviewState(TAX_SETTINGS_KEY, adminTaxSettingsSchema, TAX_DEFAULTS);
+  const withholdingRate = taxSettings.value.withholdingRate;
+  const live = investments.filter((i) => i.publicationStatus === "active" && i.unitsSold > 0);
+  const offerings = live.map(toOffering);
+  // ponytail: a flat list scales to a few hundred properties; switch to server search when it outgrows that.
+  const propertyOptions: PropertyOption[] = [
+    {
+      id: "all",
+      name: "All properties",
+      units: offerings.reduce((total, o) => total + o.units, 0),
+      principal: offerings.reduce((total, o) => total + o.principal, 0),
+    },
+    ...offerings.map((o) => ({ ...o, terms: o })),
+  ];
   const form = useForm<ReturnScheduleForm>({
     resolver: zodResolver(returnScheduleFormSchema),
     defaultValues: DEFAULTS,
@@ -104,24 +154,37 @@ export default function ReturnsPage() {
     if (parsed?.success) form.reset(parsed.data);
   }, [ready, requests, form]);
 
-  const groups = previewDividends(snapshot, RETURN_COHORTS);
+  // A saved draft may point at a property that no longer pays returns; fall back to all of them.
+  const scope = offerings.some((o) => o.id === snapshot.propertyId) ? snapshot : { ...snapshot, propertyId: "all" };
+  const selected = offerings.find((o) => o.id === scope.propertyId);
+  const groups = previewDividends(scope, offerings, withholdingRate);
+  const periodDays = accrualDays(scope.periodStart, scope.periodEnd, "actual/365");
+  const fitsPeriod = (frequency: ReturnOffering["frequency"]) =>
+    Math.abs(periodDays - FREQUENCY_DAYS[frequency]) / FREQUENCY_DAYS[frequency] <= 0.2;
+  const rates = [...new Set(groups.map((g) => g.annualRate))].toSorted((a, b) => a - b);
   const totals = groups.reduce(
     (t, g) => ({
       gross: t.gross + Math.round(g.gross * 100),
       tax: t.tax + Math.round(g.tax * 100),
       net: t.net + Math.round(g.net * 100),
-      investors: t.investors + g.investors,
+      units: t.units + g.units,
     }),
-    { gross: 0, tax: 0, net: 0, investors: 0 }
+    { gross: 0, tax: 0, net: 0, units: 0 }
   );
   const [gross, tax, net] = [totals.gross / 100, totals.tax / 100, totals.net / 100];
-  const batchId = `DIV-${snapshot.propertyId}-${snapshot.periodStart}-${snapshot.periodEnd}`;
+  const batchId = `DIV-${scope.propertyId}-${scope.periodStart}-${scope.periodEnd}`;
+
+  const maturities = live
+    .map((i) => ({ id: i.id, name: i.name, date: maturityDate(i), principal: i.unitsSold * i.unitPrice }))
+    .toSorted((a, b) => a.date.localeCompare(b.date));
+  const [maturityId, setMaturityId] = React.useState<string | null>(null);
+  const release = maturities.find((m) => m.id === maturityId) ?? maturities[0];
   const openRequests = requests.filter((r) => REQUEST_KINDS.includes(r.kind));
 
   const maturity = useForm<z.infer<typeof maturityFormSchema>>({
     resolver: zodResolver(maturityFormSchema),
     defaultValues: {
-      releaseDate: "2026-11-30",
+      releaseDate: release?.date ?? AS_OF,
       evidenceReference: "",
       reason: "Principal realization release for maturity review",
     },
@@ -146,8 +209,9 @@ export default function ReturnsPage() {
       batchId,
       content: (
         <Notice>
-          {totals.investors} investors · net credits {money(net)} · proposed {formatDate(snapshot.creditDate)}. Funding
-          and duplicate checks are still unverified.
+          {groups.length} {groups.length === 1 ? "property" : "properties"} · {totals.units.toLocaleString()} units ·
+          net credits {money(net)} after {withholdingRate}% withholding · proposed {formatDate(scope.creditDate)}.
+          Funding and duplicate checks are still unverified.
         </Notice>
       ),
       onSave: (v) =>
@@ -156,7 +220,7 @@ export default function ReturnsPage() {
           subjectId: batchId,
           summary: `Dividend · ${money(net)}`,
           reason: v.reason,
-          details: { ...snapshot, checkerId: v.checkerId, gross, tax, net },
+          details: { ...scope, withholdingRate, checkerId: v.checkerId, gross, tax, net },
         }),
     });
 
@@ -164,8 +228,8 @@ export default function ReturnsPage() {
     downloadCsv(
       "dividend-preview.csv",
       previewCsv([
-        ["Group", "Investors", "Gross", "Tax", "Net credit"],
-        ...groups.map((g) => [g.name, g.investors, g.gross, g.tax, g.net]),
+        ["Property", "Units", "Rate %", "Basis", "Pays", "Gross", "Tax", "Net credit"],
+        ...groups.map((g) => [g.name, g.units, g.annualRate, g.basis, g.frequency, g.gross, g.tax, g.net]),
       ])
     );
 
@@ -202,11 +266,10 @@ export default function ReturnsPage() {
           />
           <div className="relative flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-sm text-white/60">Net wallet credits · DIV-010</p>
+              <p className="text-sm text-white/60">Net wallet credits · {selected?.name ?? "All properties"}</p>
               <p className="mt-2 text-4xl font-light tabular-nums md:text-5xl">{money(net)}</p>
               <p className="mt-2 text-xs text-white/50">
-                {formatDate(snapshot.periodStart)} – {formatDate(snapshot.periodEnd)} · {snapshot.basis} · credits{" "}
-                {formatDate(snapshot.creditDate)}
+                {formatDate(scope.periodStart)} – {formatDate(scope.periodEnd)} · credits {formatDate(scope.creditDate)}
               </p>
             </div>
             <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-white/80">Awaiting checker</span>
@@ -228,7 +291,7 @@ export default function ReturnsPage() {
               </p>
               <p className="flex items-center gap-2">
                 <span aria-hidden className="size-2 rounded-full bg-white/40" />
-                <span className="text-white/60">Withholding {snapshot.withholdingRate}%</span>
+                <span className="text-white/60">Withholding {withholdingRate}%</span>
                 <span className="font-semibold tabular-nums">{money(tax)}</span>
               </p>
             </div>
@@ -238,8 +301,11 @@ export default function ReturnsPage() {
             <dl className="grid flex-1 grid-cols-3 gap-4">
               {[
                 { label: "Gross", value: money(gross) },
-                { label: "Investors", value: totals.investors },
-                { label: "Target rate", value: `${snapshot.annualRate}% a year` },
+                { label: "Units paid", value: totals.units.toLocaleString() },
+                {
+                  label: "Target rate",
+                  value: rates.length > 1 ? `${rates[0]}–${rates.at(-1)}%` : `${rates[0] ?? 0}% a year`,
+                },
               ].map(({ label, value }) => (
                 <div key={label} className="min-w-0">
                   <dt className="text-xs text-white/60">{label}</dt>
@@ -306,51 +372,83 @@ export default function ReturnsPage() {
           </div>
           <form noValidate onSubmit={(event) => event.preventDefault()}>
             <Section step={1} title="Scope">
-              {(
-                [
-                  {
-                    name: "propertyId",
-                    label: "Property",
-                    options: [
-                      { value: "all", label: "All properties" },
-                      ...RETURN_COHORTS.map((c) => ({ value: c.id, label: c.name })),
-                    ],
-                  },
-                  {
-                    name: "basis",
-                    label: "Accrual basis",
-                    options: [
-                      { value: "30/360", label: "30/360" },
-                      { value: "actual/365", label: "Actual/365" },
-                    ],
-                  },
-                  {
-                    name: "frequency",
-                    label: "Payout frequency",
-                    options: [
-                      { value: "monthly", label: "Monthly" },
-                      { value: "quarterly", label: "Quarterly" },
-                      { value: "annual", label: "Annual" },
-                    ],
-                  },
-                ] as const
-              ).map(({ name, label, options }) => (
-                <div key={name} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm text-muted-foreground">{label}</p>
-                  <Controller
-                    control={form.control}
-                    name={name}
-                    render={({ field }) => (
-                      <FilterChips
-                        label={label}
-                        value={field.value as string}
-                        onChange={field.onChange}
-                        options={[...options]}
-                      />
+              <Controller
+                control={form.control}
+                name="propertyId"
+                render={({ field, fieldState }) => (
+                  <ResourceField
+                    id="returns-property"
+                    label="Property"
+                    error={fieldState.error?.message}
+                    value={propertyOptions.find((option) => option.id === scope.propertyId) ?? null}
+                    onChange={(option) => option && field.onChange(option.id)}
+                    items={propertyOptions}
+                    getItemKey={(option) => option.id}
+                    getItemTitle={(option) => option.name}
+                    getItemGroup={(option) => (option.id === "all" ? "" : "Paying returns")}
+                    searchFilter={(option, term) => option.name.toLowerCase().includes(term)}
+                    placeholder="Choose a property"
+                    searchPlaceholder="Search properties"
+                    emptyMessage="No property matches that search."
+                    triggerClassName="h-12"
+                    renderSummary={(option) => (
+                      <>
+                        <PropertyMark option={option} />
+                        <span className="truncate font-semibold text-foreground">{option.name}</span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {option.terms
+                            ? `${option.terms.annualRate}% · ${frequencyLabel(option.terms.frequency).toLowerCase()}`
+                            : `${offerings.length} properties`}
+                        </span>
+                      </>
+                    )}
+                    renderSearchItem={(option, isSelected) => (
+                      <ResourceFieldItem selected={isSelected}>
+                        <PropertyMark option={option} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-semibold">{option.name}</span>
+                          <span className="block truncate text-xs text-muted-foreground tabular-nums">
+                            {option.terms
+                              ? `${option.terms.annualRate}% · ${frequencyLabel(option.terms.frequency)} · ${money(option.principal)}`
+                              : `Each on its own terms · ${money(option.principal)}`}
+                          </span>
+                        </span>
+                      </ResourceFieldItem>
                     )}
                   />
+                )}
+              />
+              {selected ? (
+                <div className="flex flex-col gap-3 rounded-xl bg-muted/50 p-4">
+                  <dl className="grid grid-cols-3 gap-3 text-sm">
+                    {[
+                      ["Target rate", `${selected.annualRate}% a year`],
+                      ["Pays", frequencyLabel(selected.frequency)],
+                      ["Interest basis", selected.basis],
+                    ].map(([label, value]) => (
+                      <div key={label} className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">{label}</dt>
+                        <dd className="mt-0.5 truncate font-semibold tabular-nums">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <p className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    Set when the investment was created, so every payout uses the same terms.
+                    <Link
+                      href={`/admin/investments/${encodeURIComponent(selected.id)}`}
+                      className="flex items-center gap-1 font-semibold text-foreground underline-offset-4 hover:underline"
+                    >
+                      View investment
+                      <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden className="size-3.5" />
+                    </Link>
+                  </p>
                 </div>
-              ))}
+              ) : (
+                <p className="rounded-xl bg-muted/50 p-4 text-xs/5 text-muted-foreground">
+                  Each property pays at its own rate and on its own basis, as set when the investment was created. The
+                  breakdown shows each one.
+                </p>
+              )}
             </Section>
             <Section step={2} title="Period">
               <div className="grid gap-4 sm:grid-cols-3">
@@ -359,11 +457,7 @@ export default function ReturnsPage() {
                 <FinanceDate form={form} name="creditDate" label="Credit date" />
               </div>
             </Section>
-            <Section step={3} title="Rates & reason">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <FinanceNumber form={form} name="annualRate" label="Annual target rate (%)" />
-                <FinanceNumber form={form} name="withholdingRate" label="Example withholding (%)" />
-              </div>
+            <Section step={3} title="Reason">
               <FinanceText form={form} name="reason" label="Schedule reason" area />
               <Notice>
                 Target returns aren&apos;t owed or guaranteed. Confirm approved distributable income and the contract
@@ -412,29 +506,58 @@ export default function ReturnsPage() {
         </Card>
 
         <Card className="gap-4 rounded-2xl px-5 py-5 ring-foreground/8 xl:sticky xl:top-24">
-          <CardHeader title="Batch breakdown" note={`${totals.investors} eligible investors`} />
+          <CardHeader
+            title="Batch breakdown"
+            note={`${groups.length} ${groups.length === 1 ? "property" : "properties"} · ${periodDays}-day period`}
+          />
           <SegmentBar
             className="bg-muted"
-            parts={groups.map((g, i) => ({ key: g.id, value: g.net, className: COHORT_COLORS[i % 2] }))}
+            parts={groups.map((g, i) => ({
+              key: g.id,
+              value: g.net,
+              className: COHORT_COLORS[i % COHORT_COLORS.length],
+            }))}
           />
           <ul className="flex flex-col">
             {groups.map((g, i) => (
               <li key={g.id} className="flex items-start gap-3 border-b border-border py-3 last:border-none">
-                <span aria-hidden className={cn("mt-1.5 size-2 shrink-0 rounded-full", COHORT_COLORS[i % 2])} />
+                <span
+                  aria-hidden
+                  className={cn("mt-1.5 size-2 shrink-0 rounded-full", COHORT_COLORS[i % COHORT_COLORS.length])}
+                />
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold">{g.name}</span>
                   <span className="block text-xs text-muted-foreground tabular-nums">
-                    {g.investors} investors · gross {money(g.gross)} · tax {money(g.tax)}
+                    {g.annualRate}% · {g.basis} · gross {money(g.gross)} · tax {money(g.tax)}
                   </span>
+                  {!fitsPeriod(g.frequency) && (
+                    <span className="mt-1.5 inline-flex">
+                      <StatusPill tone="warning">Pays {frequencyLabel(g.frequency).toLowerCase()}</StatusPill>
+                    </span>
+                  )}
                 </span>
                 <span className="text-sm font-semibold tabular-nums">{money(g.net)}</span>
               </li>
             ))}
+            {!groups.length && (
+              <li className="py-6 text-center text-sm text-muted-foreground">No investment is paying returns yet.</li>
+            )}
           </ul>
           <DetailList
             className="rounded-xl bg-muted/50 px-4"
             rows={[
               ["Batch total", money(net)],
+              [
+                "Withholding",
+                <Link
+                  key="tax"
+                  href="/admin/settings/tax"
+                  className="underline-offset-4 hover:underline"
+                  title="Change in tax settings"
+                >
+                  {withholdingRate}%
+                </Link>,
+              ],
               ["Prepared by", "Tunde Bello"],
               ["Checker", "Independent approval"],
               [
@@ -456,52 +579,76 @@ export default function ReturnsPage() {
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
         <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
-          <CardHeader title="Principal release" note="MAT-004 · separate from dividends">
+          <CardHeader title="Principal release" note="Upcoming maturities · separate from dividends">
             <StatusPill tone="muted">Draft</StatusPill>
           </CardHeader>
-          <div>
-            <p className="text-3xl font-light tabular-nums">{money(MATURITY_TOTAL)}</p>
-            <p className="mt-1 text-xs text-muted-foreground">Principal only. Accrued yield is excluded.</p>
-          </div>
-          <div className="flex flex-col gap-2.5">
-            <SegmentBar
-              className="bg-muted"
-              parts={MATURITY_LINES.map((line) => ({
-                key: line.name,
-                value: line.principal,
-                className: line.className,
-              }))}
-            />
-            <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-              {MATURITY_LINES.map((line) => (
-                <div key={line.name} className="flex items-center gap-2">
-                  <span aria-hidden className={cn("size-2 rounded-full", line.className)} />
-                  <dt className="text-muted-foreground">{line.name}</dt>
-                  <dd className="font-semibold tabular-nums">{money(line.principal)}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
+          {release ? (
+            <div>
+              <p className="text-3xl font-light tabular-nums">{money(release.principal)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {release.name} · principal only, returns are paid separately.
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No investment has units to release yet.</p>
+          )}
+          <ul role="radiogroup" aria-label="Maturing investment" className="flex flex-col gap-1.5">
+            {maturities.slice(0, 4).map((m) => {
+              const isActive = m.id === release?.id;
+              const days = daysUntil(m.date);
+              return (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={isActive}
+                    onClick={() => {
+                      setMaturityId(m.id);
+                      maturity.setValue("releaseDate", m.date, { shouldValidate: true });
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      isActive ? "border-foreground/30 bg-muted" : "border-border hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="flex w-12 shrink-0 flex-col items-center rounded-lg bg-card py-1 text-center ring-1 ring-foreground/5">
+                      <span className="text-[10px] text-muted-foreground uppercase">
+                        {formatDate(m.date).split(" ")[1]}
+                      </span>
+                      <span className="text-sm font-semibold tabular-nums">{formatDate(m.date).split(" ")[0]}</span>
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{m.name}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {days > 0 ? `Matures in ${days} days` : "Matured"} · {formatDate(m.date)}
+                      </span>
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums">{money(m.principal)}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
           <form
             noValidate
             className="flex flex-col gap-4 border-t border-border pt-5"
             onSubmit={maturity.handleSubmit((values) =>
               reviewBatch({
                 title: "Review principal release",
-                batchId: "MAT-004",
+                batchId: `MAT-${release?.id}`,
                 content: (
                   <Notice>
-                    Principal only: {money(MATURITY_TOTAL)}. Settlement evidence: {values.evidenceReference}. Release{" "}
-                    {formatDate(values.releaseDate)}.
+                    {release?.name} · principal only: {money(release?.principal ?? 0)}. Settlement evidence:{" "}
+                    {values.evidenceReference}. Release {formatDate(values.releaseDate)}.
                   </Notice>
                 ),
                 onSave: (v) =>
                   submit({
                     kind: "principal-batch",
-                    subjectId: "MAT-004",
-                    summary: `Principal release · ${values.releaseDate}`,
+                    subjectId: `MAT-${release?.id}`,
+                    summary: `Principal release · ${release?.name} · ${values.releaseDate}`,
                     reason: v.reason,
-                    details: { ...values, checkerId: v.checkerId, principal: MATURITY_TOTAL },
+                    details: { ...values, checkerId: v.checkerId, principal: release?.principal ?? 0 },
                   }),
               })
             )}
@@ -515,7 +662,7 @@ export default function ReturnsPage() {
               Principal and dividends post as separate ledger entries. Holdings are marked matured only after the wallet
               posting is confirmed.
             </p>
-            <Button type="submit" variant="outline" className="rounded-full" disabled={!ready}>
+            <Button type="submit" variant="outline" className="rounded-full" disabled={!ready || !release}>
               Review principal release
             </Button>
           </form>

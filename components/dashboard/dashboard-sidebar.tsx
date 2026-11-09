@@ -17,8 +17,9 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { type NavGroup, dashboardNavGroups } from "@/lib/dashboard-nav";
-import { Logout01Icon } from "@hugeicons/core-free-icons";
+import { ArrowDown01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "cn";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -46,7 +47,13 @@ function DashboardNav({ groups, basePath }: { groups: NavGroup[]; basePath: stri
   const rawPathname = usePathname();
   const pathname = (rawPathname.startsWith(basePath) ? rawPathname.slice(basePath.length) : rawPathname) || "/";
 
-  const isActive = (url?: string) => !!url && (url === "/" ? pathname === "/" : pathname.startsWith(url));
+  const matches = (url?: string) => !!url && (url === "/" ? pathname === "/" : pathname.startsWith(url));
+  // The longest matching url wins, so /users/management lights up Investors rather than Users & Admins too.
+  const activeUrl = groups
+    .flatMap((group) => group.items.map((item) => item.url))
+    .filter(matches)
+    .sort((a, b) => b!.length - a!.length)[0];
+  const isActive = (url?: string) => !!url && url === activeUrl;
   const hrefFor = (url: string) => (url === "/" ? basePath : `${basePath}${url}`);
 
   return groups.map((group) => (
@@ -77,6 +84,98 @@ function DashboardNav({ groups, basePath }: { groups: NavGroup[]; basePath: stri
       </SidebarMenu>
     </SidebarGroup>
   ));
+}
+
+/**
+ * The nav scrolls with a hidden scrollbar, so items tucked under the footer give no clue they're there. This fades the
+ * edge and shows a pill counting what's below until the list is scrolled to the end.
+ */
+function SidebarScrollArea({ children }: { children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  const [hiddenBelow, setHiddenBelow] = React.useState(0);
+  const [isScrolled, setIsScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const area = ref.current;
+    if (!area) return;
+    const measure = () => {
+      const bottom = area.getBoundingClientRect().bottom;
+      const items = area.querySelectorAll<HTMLElement>('[data-sidebar="menu-item"]');
+      // An item counts as hidden once more than half of it sits below the edge.
+      setHiddenBelow(
+        [...items].filter((item) => {
+          const rect = item.getBoundingClientRect();
+          return rect.top + rect.height / 2 > bottom;
+        }).length
+      );
+      setIsScrolled(area.scrollTop > 4);
+    };
+    measure();
+    area.addEventListener("scroll", measure, { passive: true });
+    const observer = new ResizeObserver(measure);
+    observer.observe(area);
+    // The nav renders inside Suspense, so watch for its items arriving too.
+    const mutations = new MutationObserver(measure);
+    mutations.observe(area, { childList: true, subtree: true });
+    return () => {
+      area.removeEventListener("scroll", measure);
+      observer.disconnect();
+      mutations.disconnect();
+    };
+  }, []);
+
+  const scrollDown = () => {
+    const area = ref.current;
+    if (!area) return;
+    const top = area.clientHeight * 0.8;
+    const start = area.scrollTop;
+    area.scrollBy({ top, behavior: "smooth" });
+    // Smooth scrolling stalls in tabs that aren't painting; jump instead so the click always does something.
+    setTimeout(() => area.scrollTop === start && area.scrollBy({ top }), 350);
+  };
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <SidebarContent ref={ref} className="gap-4 pt-2">
+        {children}
+      </SidebarContent>
+
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-x-0 top-0 h-6 bg-linear-to-b from-sidebar to-transparent transition-opacity duration-300 group-data-[collapsible=icon]:hidden",
+          isScrolled ? "opacity-100" : "opacity-0"
+        )}
+      />
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-sidebar via-sidebar/80 to-transparent transition-opacity duration-300 group-data-[collapsible=icon]:hidden",
+          hiddenBelow ? "opacity-100" : "opacity-0"
+        )}
+      />
+      <button
+        type="button"
+        onClick={scrollDown}
+        tabIndex={hiddenBelow ? 0 : -1}
+        aria-hidden={!hiddenBelow}
+        aria-label={`Show ${hiddenBelow} more menu item${hiddenBelow === 1 ? "" : "s"}`}
+        className={cn(
+          "absolute bottom-2 left-1/2 flex h-7 -translate-x-1/2 items-center gap-1.5 rounded-full bg-sidebar/90 py-0 pr-2 pl-3 text-[11px] font-semibold text-sidebar-foreground shadow-sm ring-1 ring-sidebar-border backdrop-blur-md transition-all duration-300 outline-none group-data-[collapsible=icon]:hidden hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          hiddenBelow ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0"
+        )}
+      >
+        <span className="tabular-nums">{hiddenBelow} more</span>
+        <span className="flex size-4 items-center justify-center rounded-full bg-sidebar-accent text-sidebar-accent-foreground">
+          <HugeiconsIcon
+            icon={ArrowDown01Icon}
+            aria-hidden
+            className="size-3 motion-safe:animate-[nudge_1.6s_ease-in-out_infinite]"
+          />
+        </span>
+      </button>
+    </div>
+  );
 }
 
 interface DashboardSidebarProps {
@@ -129,13 +228,13 @@ export function DashboardSidebar({
           </Link>
         </SidebarHeader>
 
-        <SidebarContent className="gap-4 pt-2">
+        <SidebarScrollArea>
           <React.Suspense
             fallback={<div aria-label="Loading navigation" className="mx-4 h-80 animate-pulse rounded-xl bg-muted" />}
           >
             <DashboardNav groups={groups} basePath={basePath} />
           </React.Suspense>
-        </SidebarContent>
+        </SidebarScrollArea>
 
         {footer && <SidebarFooter className="p-4 group-data-[collapsible=icon]:hidden">{footer}</SidebarFooter>}
 

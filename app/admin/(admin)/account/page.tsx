@@ -262,13 +262,9 @@ function InvoiceHealthCard() {
     <Card className="gap-5 rounded-2xl px-5 py-5 ring-foreground/8">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Invoices</h2>
-        <Link
-          href="/admin/account/invoices"
-          className="flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        >
-          View all
-          <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden className="size-4" />
-        </Link>
+        <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground tabular-nums">
+          {invoices.length} total
+        </span>
       </div>
 
       <div>
@@ -320,6 +316,16 @@ function InvoiceHealthCard() {
           </li>
         ))}
       </ul>
+
+      <Button
+        variant="outline"
+        className="mt-auto h-10 w-full justify-between rounded-full px-4"
+        nativeButton={false}
+        render={<Link href="/admin/account/invoices" />}
+      >
+        See all {invoices.length} invoices
+        <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden />
+      </Button>
     </Card>
   );
 }
@@ -377,6 +383,15 @@ export default function AccountOverview() {
               },
             ]}
           />
+          <Button
+            variant="outline"
+            className="h-10 rounded-full px-4"
+            nativeButton={false}
+            render={<Link href="/admin/account/invoices" />}
+          >
+            <HugeiconsIcon icon={Invoice01Icon} aria-hidden />
+            All invoices
+          </Button>
           <Button
             className="h-10 rounded-full px-4"
             nativeButton={false}

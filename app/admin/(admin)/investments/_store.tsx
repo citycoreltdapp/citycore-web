@@ -8,6 +8,13 @@ import { z } from "zod";
 import { ADMIN_INVESTMENTS } from "./_data";
 
 const KEY = "citycore-admin-investments-v2";
+// Records saved before payout terms existed get the old defaults, so nothing saved is lost.
+const readSaved = (raw: string) =>
+  z
+    .array(z.looseObject({}))
+    .transform((rows) => rows.map((row) => ({ payoutFrequency: "quarterly", accrualBasis: "30/360", ...row })))
+    .pipe(z.array(adminInvestmentSchema))
+    .safeParse(JSON.parse(raw));
 const Context = React.createContext<{
   investments: AdminInvestment[];
   ready: boolean;
@@ -23,7 +30,7 @@ export function InvestmentsProvider({ children }: { children: React.ReactNode })
       try {
         const raw = localStorage.getItem(KEY);
         if (raw) {
-          const parsed = z.array(adminInvestmentSchema).safeParse(JSON.parse(raw));
+          const parsed = readSaved(raw);
           if (parsed.success) setInvestments(parsed.data);
           else toast.error("Saved investment data could not be read");
         }
@@ -45,7 +52,9 @@ export function InvestmentsProvider({ children }: { children: React.ReactNode })
     }
     try {
       const raw = localStorage.getItem(KEY);
-      const current = raw ? z.array(adminInvestmentSchema).parse(JSON.parse(raw)) : investments;
+      const saved = raw ? readSaved(raw) : null;
+      if (saved && !saved.success) throw saved.error;
+      const current = saved?.data ?? investments;
       const existing = current.find((i) => i.id === record.id);
       if (existing && record.version !== existing.version + 1) {
         toast.error("This investment changed in another tab. Reload before saving.");

@@ -48,3 +48,9 @@ export const mutationResultSchema = z.object({ success: z.literal(true), updated
 export type PaginationQueryInput = z.input<typeof paginationQuerySchema>;
 export type PaginationQuery = z.output<typeof paginationQuerySchema>;
 export type ApiError = z.infer<typeof apiErrorSchema>;
+
+// Investment payout terms. Here rather than admin-investments so treasury schemas can use them without an import cycle.
+/** How often returns are credited to investor wallets. */
+export const payoutFrequencySchema = z.enum(["monthly", "quarterly", "annual"]);
+/** Day-count convention for accruing returns: 30-day months on a 360-day year, or actual days on 365. */
+export const accrualBasisSchema = z.enum(["30/360", "actual/365"]);

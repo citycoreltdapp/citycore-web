@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 import { STAFF } from "../../_operations/data";
 import { Notice, PageLink, PageTitle, Panel, StatusBadge } from "../../_operations/ui";
-import { toProperty } from "../_data";
+import { FREQUENCY_ITEMS, maturityDate, toProperty } from "../_data";
 import { useAdminInvestments } from "../_store";
 
 export default function InvestmentView() {
@@ -55,6 +55,15 @@ export default function InvestmentView() {
               <dd>
                 {investment.unitsSold.toLocaleString()} / {investment.totalUnits.toLocaleString()}
               </dd>
+              <dt className="text-muted-foreground">Returns</dt>
+              <dd>
+                {investment.targetRoi}% a year · paid{" "}
+                {FREQUENCY_ITEMS.find((item) => item.value === investment.payoutFrequency)?.label.toLowerCase()}
+              </dd>
+              <dt className="text-muted-foreground">Interest basis</dt>
+              <dd>{investment.accrualBasis}</dd>
+              <dt className="text-muted-foreground">Matures</dt>
+              <dd>{maturityDate(investment)}</dd>
               <dt className="text-muted-foreground">Offering starts</dt>
               <dd>{investment.startDate}</dd>
               <dt className="text-muted-foreground">Offering ends</dt>

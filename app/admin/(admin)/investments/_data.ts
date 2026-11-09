@@ -22,6 +22,9 @@ export const ADMIN_INVESTMENTS: AdminInvestment[] = PROPERTIES.map((property) =>
   highlights: property.highlights,
   targetRoi: property.targetRoi,
   tenureMonths: property.tenureMonths,
+  // ponytail: sample terms until the offerings API returns them.
+  payoutFrequency: property.tenureMonths > 12 ? "quarterly" : property.id === "cedar-gardens" ? "monthly" : "quarterly",
+  accrualBasis: "30/360",
   unitPrice: property.unitPrice,
   totalUnits: property.totalUnits,
   minUnits: property.minUnits,
@@ -63,6 +66,23 @@ export const toProperty = (record: AdminInvestment): Property => ({
   referralPlan: record.referralPlan ?? null,
   documents: record.documents,
 });
+
+export const FREQUENCY_ITEMS = [
+  { value: "monthly", label: "Monthly" },
+  { value: "quarterly", label: "Quarterly" },
+  { value: "annual", label: "Annually" },
+];
+export const BASIS_ITEMS = [
+  { value: "30/360", label: "30/360 · 30-day months" },
+  { value: "actual/365", label: "Actual/365 · calendar days" },
+];
+
+/** The date the offering matures: its start date plus the tenure. */
+export const maturityDate = (record: { startDate: string; tenureMonths: number }) => {
+  const date = new Date(`${record.startDate}T00:00:00Z`);
+  date.setUTCMonth(date.getUTCMonth() + record.tenureMonths);
+  return date.toISOString().slice(0, 10);
+};
 
 export const TYPE_ITEMS = [
   { value: "residential", label: "Residential development" },

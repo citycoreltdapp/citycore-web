@@ -8,9 +8,10 @@ const items = [
   { href: "/admin/settings/security", label: "Security" },
   { href: "/admin/settings/notifications", label: "Notifications" },
   { href: "/admin/settings/limits", label: "Payment limits" },
+  { href: "/admin/settings/tax", label: "Tax" },
 ];
 export function AdminSettingsNavigation() {
-  const pathname = usePathname().replace(/^\/admin/, "");
+  const pathname = usePathname();
   return (
     <nav
       aria-label="Admin settings sections"

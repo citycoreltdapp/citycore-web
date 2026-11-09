@@ -13,6 +13,7 @@ import {
   SecurityCheckIcon,
   Settings02Icon,
   UserAccountIcon,
+  UserListIcon,
   UserMultipleIcon,
   Wrench01Icon,
 } from "@hugeicons/core-free-icons";
@@ -27,6 +28,7 @@ export const adminNavGroups: NavGroup[] = [
       { title: "Dashboard", url: "/", icon: Home01Icon },
       { title: "Account", url: "/account", icon: UserAccountIcon },
       { title: "Users & Admins", url: "/users", icon: UserMultipleIcon },
+      { title: "Investors", url: "/users/management", icon: UserListIcon },
       { title: "KYC Compliance", url: "/kyc", icon: SecurityCheckIcon },
       { title: "Investments", url: "/investments", icon: Briefcase01Icon },
       { title: "Returns & Maturity", url: "/returns", icon: Coins01Icon },

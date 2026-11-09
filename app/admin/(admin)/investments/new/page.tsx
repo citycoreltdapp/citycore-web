@@ -26,7 +26,7 @@ import { toast } from "sonner";
 
 import { STAFF } from "../../_operations/data";
 import { Notice, PageLink, PageTitle, Panel, StatusBadge } from "../../_operations/ui";
-import { IMAGE_ITEMS, TYPE_ITEMS } from "../_data";
+import { BASIS_ITEMS, FREQUENCY_ITEMS, IMAGE_ITEMS, TYPE_ITEMS, maturityDate } from "../_data";
 import { useAdminInvestments } from "../_store";
 
 const DEFAULTS: AdminInvestmentForm = {
@@ -41,6 +41,8 @@ const DEFAULTS: AdminInvestmentForm = {
   highlights: [],
   targetRoi: 14,
   tenureMonths: 12,
+  payoutFrequency: "quarterly",
+  accrualBasis: "30/360",
   unitPrice: 150000,
   totalUnits: 1000,
   minUnits: 1,
@@ -462,6 +464,34 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
               />
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
                 <Controller
+                  name="payoutFrequency"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      {...field}
+                      id="offering-frequency"
+                      label="Return payout"
+                      items={FREQUENCY_ITEMS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+                <Controller
+                  name="accrualBasis"
+                  control={form.control}
+                  render={({ field, fieldState }) => (
+                    <SelectField
+                      {...field}
+                      id="offering-basis"
+                      label="Interest calculation"
+                      items={BASIS_ITEMS}
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                <Controller
                   name="startDate"
                   control={form.control}
                   render={({ field, fieldState }) => (
@@ -478,7 +508,12 @@ function EditorForm({ investment }: { investment?: AdminInvestment }) {
               </div>
               <Notice>
                 Minimum investment: {naira((values.minUnits ?? 0) * (values.unitPrice ?? 0))}. Total offering:{" "}
-                {naira((values.totalUnits ?? 0) * (values.unitPrice ?? 0))}.
+                {naira((values.totalUnits ?? 0) * (values.unitPrice ?? 0))}. Returns of {values.targetRoi ?? 0}% a year
+                are paid {FREQUENCY_ITEMS.find((item) => item.value === values.payoutFrequency)?.label.toLowerCase()}
+                {values.startDate && values.tenureMonths
+                  ? `, and principal is released at maturity on ${maturityDate({ startDate: values.startDate, tenureMonths: Number(values.tenureMonths) })}`
+                  : ""}
+                .
               </Notice>
             </Panel>
             <Panel title="Admin Publisher">

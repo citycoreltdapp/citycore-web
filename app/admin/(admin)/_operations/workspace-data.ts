@@ -8,6 +8,7 @@ import type {
   adminNotificationPreferencesSchema,
   adminPaymentLimitsSchema,
   adminPersonalStateSchema,
+  adminTaxSettingsSchema,
 } from "@/constant/schemas/admin-settings";
 import type { adminSupportStateSchema } from "@/constant/schemas/admin-support";
 import type { z } from "zod";
@@ -39,6 +40,8 @@ export const NOTIFICATION_DEFAULTS: z.infer<typeof adminNotificationPreferencesS
   buzz: { activity: true, communications: false, meetups: true },
   updates: { activity: false, communications: true, meetups: false },
 };
+export const TAX_SETTINGS_KEY = "citycore-admin-tax-v1";
+export const TAX_DEFAULTS: z.infer<typeof adminTaxSettingsSchema> = { withholdingRate: 10 };
 export const LIMIT_DEFAULTS: z.infer<typeof adminPaymentLimitsSchema> = {
   cashWithdrawal: 1000000,
   privateTransaction: 2000000,

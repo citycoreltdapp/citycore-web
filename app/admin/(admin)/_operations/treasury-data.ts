@@ -111,10 +111,6 @@ export const DISBURSEMENT_HISTORY: z.infer<typeof disbursementHistorySchema>[] =
     holdingStatus: "active",
   },
 ];
-export const RETURN_COHORTS = [
-  { id: "golden-estate", name: "Golden Estate", investors: 40, principal: 4000000 },
-  { id: "silver-city", name: "Silver City", investors: 20, principal: 2000000 },
-];
 export const LEDGER_MAPPINGS: z.infer<typeof ledgerMappingSchema>[] = [
   {
     id: "deposit",

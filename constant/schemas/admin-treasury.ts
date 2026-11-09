@@ -1,9 +1,11 @@
 import { z } from "zod";
 
 import {
+  accrualBasisSchema,
   amountSchema,
   paginatedSchema,
   paginationQuerySchema,
+  payoutFrequencySchema,
   positiveAmountSchema,
   resourceIdSchema,
   timestampSchema,
@@ -20,16 +22,16 @@ const percent = z
   .max(100)
   .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use at most two decimal places");
 const date = z.iso.date({ error: "Select a valid date" });
+/**
+ * A payout run. Rate, payout frequency and accrual basis come from each investment's terms, and withholding from
+ * platform tax settings, so they aren't entered here.
+ */
 export const returnScheduleFormSchema = z
   .object({
-    propertyId: z.enum(["all", "golden-estate", "silver-city"]),
-    basis: z.enum(["30/360", "actual/365"]),
-    annualRate: percent,
-    frequency: z.enum(["quarterly", "monthly", "annual"]),
+    propertyId: z.union([z.literal("all"), resourceIdSchema]),
     periodStart: date,
     periodEnd: date,
     creditDate: date,
-    withholdingRate: percent,
     reason: recordedReason,
   })
   .refine((v) => v.periodEnd >= v.periodStart, { path: ["periodEnd"], message: "Accrual end must follow its start" })
@@ -41,8 +43,12 @@ export const dividendGroupSchema = z
   .object({
     id: resourceIdSchema,
     name: z.string(),
-    investors: z.number().int().positive(),
+    /** Units held by investors; the payout is shared across them pro rata. */
+    units: z.number().int().positive(),
     principal: amountSchema,
+    annualRate: percent,
+    basis: accrualBasisSchema,
+    frequency: payoutFrequencySchema,
     gross: amountSchema,
     tax: amountSchema,
     net: amountSchema,

@@ -64,6 +64,16 @@ export const adminPaymentLimitsSchema = z
   .refine((v) => Object.values(v).every((amount) => amount <= 10000000), {
     message: "Preview limits cannot exceed ₦10,000,000",
   });
+/** Platform tax rules applied when returns are paid. Each payout batch reads the current rate. */
+export const adminTaxSettingsSchema = z.object({
+  withholdingRate: z
+    .number()
+    .finite()
+    .min(0)
+    .max(100)
+    .refine((v) => Math.abs(v * 100 - Math.round(v * 100)) < 0.000001, "Use at most two decimal places"),
+});
+export type AdminTaxSettings = z.infer<typeof adminTaxSettingsSchema>;
 export const updateAdminSettingsRequestSchema = z
   .object({
     version: z.number().int().nonnegative(),

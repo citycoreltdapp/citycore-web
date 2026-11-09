@@ -335,16 +335,17 @@ treasury.BANKING_RETRIES.forEach((row) => accept(s.bankingRetryRowSchema, row));
 const preview = load("lib/treasury-preview.ts");
 const schedule = {
   propertyId: "all",
-  basis: "30/360",
-  annualRate: 16,
-  frequency: "quarterly",
   periodStart: "2026-07-01",
   periodEnd: "2026-09-30",
   creditDate: "2026-10-31",
-  withholdingRate: 10,
   reason: "Quarterly distribution schedule for compliance review",
 };
-const dividends = preview.previewDividends(schedule, treasury.RETURN_COHORTS);
+const returnTerms = { annualRate: 16, basis: "30/360", frequency: "quarterly" };
+const returnOfferings = [
+  { ...returnTerms, id: "golden-estate", name: "Golden Estate", units: 40, principal: 4000000 },
+  { ...returnTerms, id: "silver-city", name: "Silver City", units: 20, principal: 2000000 },
+];
+const dividends = preview.previewDividends(schedule, returnOfferings, 10);
 dividends.forEach((row) => accept(s.dividendGroupSchema, row));
 assert.equal(
   dividends.reduce((sum, row) => sum + row.gross, 0),
@@ -358,25 +359,25 @@ assert.equal(
   dividends.reduce((sum, row) => sum + row.net, 0),
   216000
 );
-assert.equal(preview.previewDividends({ ...schedule, propertyId: "golden-estate" }, treasury.RETURN_COHORTS).length, 1);
-assert.equal(
-  preview.previewDividends(
-    {
-      ...schedule,
-      propertyId: "golden-estate",
-      basis: "actual/365",
-      annualRate: 36.5,
-      periodStart: "2024-02-28",
-      periodEnd: "2024-02-29",
-      creditDate: "2024-03-01",
-    },
-    [{ id: "golden-estate", name: "Test", principal: 1000, investors: 1 }]
-  )[0].gross,
-  2
+assert.equal(preview.previewDividends({ ...schedule, propertyId: "golden-estate" }, returnOfferings, 10).length, 1);
+// Each offering accrues on its own terms: a leap-day actual/365 offering beside a 30/360 one.
+const mixed = preview.previewDividends(
+  { ...schedule, periodStart: "2024-02-28", periodEnd: "2024-02-29", creditDate: "2024-03-01" },
+  [
+    { ...returnOfferings[0], principal: 1000, annualRate: 36.5, basis: "actual/365" },
+    { ...returnOfferings[1], principal: 3600, annualRate: 10, basis: "30/360" },
+  ],
+  0
 );
+assert.deepEqual(
+  mixed.map((row) => row.gross),
+  [2, 2]
+);
+assert.equal(preview.accrualDays("2026-07-01", "2026-09-30", "30/360"), 90);
 reject(s.returnScheduleFormSchema, { ...schedule, creditDate: schedule.periodEnd });
 reject(s.returnScheduleFormSchema, { ...schedule, periodEnd: "2026-06-01" });
-reject(s.returnScheduleFormSchema, { ...schedule, withholdingRate: 101 });
+accept(s.adminTaxSettingsSchema, { withholdingRate: 7.5 });
+reject(s.adminTaxSettingsSchema, { withholdingRate: 101 });
 assert.deepEqual(preview.withdrawalTotals([treasury.WITHDRAWAL_QUEUE[0], treasury.WITHDRAWAL_QUEUE[2]]), {
   recipients: 3000000,
   fees: 0,

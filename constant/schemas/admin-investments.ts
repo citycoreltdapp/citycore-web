@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import {
+  accrualBasisSchema,
   paginatedSchema,
   paginationQuerySchema,
+  payoutFrequencySchema,
   positiveAmountSchema,
   resourceIdSchema,
   timestampSchema,
@@ -38,6 +40,8 @@ export const adminInvestmentFormSchema = z
       .pipe(z.array(z.string()).max(6, "Keep it to six highlights")),
     targetRoi: z.number().finite().min(0).max(100),
     tenureMonths: z.number().int().min(1).max(120),
+    payoutFrequency: payoutFrequencySchema,
+    accrualBasis: accrualBasisSchema,
     unitPrice: positiveAmountSchema,
     totalUnits: z.number().int().min(1).max(10000000),
     minUnits: z.number().int().min(1).max(10000000),
@@ -110,4 +114,8 @@ export const adminInvestmentStatusRequestSchema = z
   .strict();
 export const adminInvestmentOfferingSchema = propertySchema;
 export type AdminInvestment = z.infer<typeof adminInvestmentSchema>;
+// Re-exported for callers that think of these as investment terms.
+export { accrualBasisSchema, payoutFrequencySchema };
 export type AdminInvestmentForm = z.infer<typeof adminInvestmentFormSchema>;
+export type PayoutFrequency = z.infer<typeof payoutFrequencySchema>;
+export type AccrualBasis = z.infer<typeof accrualBasisSchema>;
