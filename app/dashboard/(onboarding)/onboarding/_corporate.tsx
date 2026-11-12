@@ -2,6 +2,17 @@
 
 import { type FormEvent, type ReactNode, useState } from "react";
 
+import {
+  useKycState,
+  useLookupBusiness,
+  useSaveBusinessDetails,
+  useSavePayout,
+  useSubmitKyc,
+  useUploadAuthorisationLetter,
+  useUploadCompanyLogo,
+  useUploadUtilityBill,
+  useVerifySignatory,
+} from "@/actions/kyc";
 import { BankLogo, BankSelectField, findBank } from "@/components/primitives/bank-select-field";
 import { PhoneNumberField } from "@/components/primitives/phone-number-field";
 import { SelectField } from "@/components/primitives/select-field";
@@ -10,23 +21,22 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
+  COMPANY_LOGO_UPLOAD,
   COMPANY_TYPES,
   CORPORATE_DOCUMENT_UPLOAD,
   CORPORATE_ONBOARDING_DEFAULT_VALUES,
   CORPORATE_ONBOARDING_STEPS,
   type CacRecord,
-  type CompanyType,
   type CorporateOnboardingFormData,
   ID_TYPES,
   type IdType,
-  type PersonRole,
   REGISTRATION_NUMBER_PATTERN,
   companyTypePrefix,
   corporateOnboardingSchema,
 } from "@/constant/corporate-onboarding";
 import { NIN_PATTERN } from "@/constant/onboarding";
-import { phoneNumberToString } from "@/lib/phone-number";
-import { setKycStatus } from "@/lib/verification-status";
+import type { KycBusiness, KycState } from "@/constant/schemas/kyc";
+import { phoneNumberToE164, phoneNumberToString } from "@/lib/phone-number";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Building06Icon,
@@ -39,7 +49,17 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import { useRouter } from "next/navigation";
-import { Controller, FormProvider, useForm, useFormContext, useFormState, useWatch } from "react-hook-form";
+import { useDropzone } from "react-dropzone";
+import {
+  Controller,
+  FormProvider,
+  useController,
+  useForm,
+  useFormContext,
+  useFormState,
+  useWatch,
+} from "react-hook-form";
+import { toast } from "sonner";
 
 import {
   DocumentUpload,
@@ -60,41 +80,20 @@ const CORPORATE_FIELD_STYLES = cn(
   "**:data-[slot=input-group]:h-12 **:data-[slot=input-group]:rounded-xl **:data-[slot=input-group]:bg-card **:data-[slot=input-group-control]:text-base"
 );
 
-/** What each kind of company calls the people on its CAC record. */
-const COMPANY_COPY: Record<
-  CompanyType,
-  {
-    roles: { value: PersonRole; label: string }[];
-  }
-> = {
-  limited: {
-    roles: [
-      { value: "director", label: "Director" },
-      { value: "shareholder", label: "Shareholder" },
-      { value: "both", label: "Director & shareholder" },
-    ],
-  },
-  businessName: {
-    roles: [{ value: "both", label: "Proprietor" }],
-  },
-  trustees: {
-    roles: [{ value: "director", label: "Trustee" }],
-  },
-  limitedPartnership: {
-    roles: [{ value: "both", label: "Partner" }],
-  },
-  llp: {
-    roles: [{ value: "both", label: "Partner" }],
-  },
-};
+const roleLabel = (role: string) => role.charAt(0) + role.slice(1).toLowerCase().replaceAll("_", " ");
 
-const roleLabel = (type: CompanyType, role: PersonRole) =>
-  COMPANY_COPY[type].roles.find((option) => option.value === role)?.label ?? "Director";
+const formatDate = (date: Date) =>
+  new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 
-const formatDate = (iso: string) =>
-  new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(
-    new Date(`${iso}T00:00:00Z`)
-  );
+const toRecord = (business: KycBusiness): CacRecord => ({
+  registrationNumber: business.registrationNumber,
+  companyType: business.companyType,
+  companyName: business.companyName,
+  registeredOn: business.registeredOn,
+  registeredAddress: business.registeredAddress,
+  tin: business.tinFromRegistry ? business.tin : null,
+  people: business.affiliates,
+});
 
 const initials = (name: string) =>
   name
@@ -104,182 +103,6 @@ const initials = (name: string) =>
     .map((word) => word[0])
     .join("")
     .toUpperCase() || "?";
-
-/** "Harbourline Properties Ltd." and "HARBOURLINE PROPERTIES LIMITED" are the same name to a bank. */
-const sameCompanyName = (a: string, b: string) => {
-  const normalise = (name: string) =>
-    name
-      .toUpperCase()
-      .replace(/\bLTD\b\.?/g, "LIMITED")
-      .replace(/[^A-Z0-9]/g, "");
-  return normalise(a) === normalise(b);
-};
-
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/** Words of a person's name, so "Okafor, Adaeze N." and "ADAEZE NGOZI OKAFOR" can be compared. */
-const nameWords = (name: string) =>
-  name
-    .toUpperCase()
-    .replace(/[^A-Z\s-]/g, " ")
-    .split(/[\s-]+/)
-    .filter((word) => word.length > 1);
-
-/** Every name on the CAC record has to appear on the ID; the ID may add a middle name. */
-const samePerson = (cacName: string, idName: string) => {
-  const onId = new Set(nameWords(idName));
-  const onCac = nameWords(cacName);
-  return onCac.length > 0 && onCac.every((word) => onId.has(word));
-};
-
-/* Dojah's response shapes, cut down to what the flow reads. */
-interface DojahCac {
-  company_name: string;
-  rc_number: string;
-  status: string;
-  date_of_registration: string;
-  address: string;
-  affiliates: { first_name: string; last_name: string; affiliate_type: string }[];
-}
-interface DojahTin {
-  tax_id: string | null;
-}
-interface DojahIdentity {
-  first_name: string;
-  middle_name?: string;
-  last_name: string;
-}
-interface DojahAccount {
-  account_name: string;
-}
-
-/** CAC lists a director who also holds shares twice, once per role; the form wants one person with both. */
-function toPeople(affiliates: DojahCac["affiliates"]): CacRecord["people"] {
-  const people = new Map<string, CacRecord["people"][number]>();
-  for (const affiliate of affiliates) {
-    const fullName = `${affiliate.first_name} ${affiliate.last_name}`.trim();
-    const type = affiliate.affiliate_type.toUpperCase();
-    const role: PersonRole = type.includes("SHAREHOLDER")
-      ? "shareholder"
-      : type.includes("PROPRIETOR") || type.includes("PARTNER")
-        ? "both"
-        : "director";
-    const key = nameWords(fullName).toSorted().join(" ");
-    const existing = people.get(key);
-    people.set(key, { fullName, role: existing && existing.role !== role ? "both" : role });
-  }
-  return [...people.values()];
-}
-
-const toIsoDate = (value: string) => new Date(value).toISOString().slice(0, 10);
-
-// ponytail: these stand in for Dojah, returning its response shapes so wiring it up only swaps the fetch:
-//   CAC     GET /api/v1/kyc/cac/advance?rc_number=&company_type=   (company_type from COMPANY_TYPES.dojahType)
-//   TIN     GET /api/v1/kyc/cac/tin?rc_number=&company_type=
-//   NIN     GET /api/v1/kyc/nin?nin=            BVN  GET /api/v1/kyc/bvn/full?bvn=
-//   Account GET /api/v1/general/account?account_number=&bank_code=
-// Call them from the server: Dojah's secret key can't ship to the browser.
-// Demo numbers: all zeros finds nothing, all ones gives a mismatch, and business names have no TIN on file.
-const DEMO_AFFILIATES: Record<CompanyType, DojahCac["affiliates"]> = {
-  limited: [
-    { first_name: "Adaeze", last_name: "Okafor", affiliate_type: "DIRECTOR" },
-    { first_name: "Adaeze", last_name: "Okafor", affiliate_type: "SHAREHOLDER" },
-    { first_name: "Tunde", last_name: "Bakare", affiliate_type: "DIRECTOR" },
-    { first_name: "Ifeoma", last_name: "Nwosu", affiliate_type: "SHAREHOLDER" },
-  ],
-  businessName: [
-    { first_name: "Adaeze", last_name: "Okafor", affiliate_type: "PROPRIETOR" },
-    { first_name: "Tunde", last_name: "Bakare", affiliate_type: "PROPRIETOR" },
-  ],
-  trustees: [
-    { first_name: "Adaeze", last_name: "Okafor", affiliate_type: "TRUSTEE" },
-    { first_name: "Tunde", last_name: "Bakare", affiliate_type: "TRUSTEE" },
-    { first_name: "Ifeoma", last_name: "Nwosu", affiliate_type: "TRUSTEE" },
-  ],
-  limitedPartnership: [
-    { first_name: "Adaeze", last_name: "Okafor", affiliate_type: "GENERAL PARTNER" },
-    { first_name: "Tunde", last_name: "Bakare", affiliate_type: "LIMITED PARTNER" },
-  ],
-  llp: [
-    { first_name: "Adaeze", last_name: "Okafor", affiliate_type: "DESIGNATED PARTNER" },
-    { first_name: "Tunde", last_name: "Bakare", affiliate_type: "PARTNER" },
-  ],
-};
-
-const DEMO_NAMES: Record<CompanyType, string> = {
-  limited: "Harbourline Properties Limited",
-  businessName: "Harbourline Ventures",
-  trustees: "Harbourline Community Foundation",
-  limitedPartnership: "Harbourline Capital LP",
-  llp: "Harbourline Advisory LLP",
-};
-
-async function fetchDojahCac(companyType: CompanyType, rcNumber: string): Promise<DojahCac | null> {
-  await wait(800);
-  if (/^0+$/.test(rcNumber)) return null;
-  return {
-    company_name: DEMO_NAMES[companyType].toUpperCase(),
-    rc_number: rcNumber,
-    status: /^1+$/.test(rcNumber) ? "INACTIVE" : "ACTIVE",
-    date_of_registration: "2019-03-12T00:00:00.000Z",
-    address: "14 Adeola Odeku Street, Victoria Island, Lagos",
-    affiliates: DEMO_AFFILIATES[companyType],
-  };
-}
-
-async function fetchDojahTin(companyType: CompanyType): Promise<DojahTin> {
-  await wait(300);
-  return { tax_id: companyType === "businessName" ? null : "23456789-0001" };
-}
-
-async function fetchDojahIdentity(idNumber: string, fullName: string): Promise<DojahIdentity | null> {
-  await wait(700);
-  if (/^0+$/.test(idNumber)) return null;
-  if (/^1+$/.test(idNumber)) return { first_name: "CHIOMA", last_name: "EZE" };
-  const [first = "", ...rest] = fullName.toUpperCase().split(/\s+/);
-  return { first_name: first, last_name: rest.join(" ") };
-}
-
-async function fetchDojahAccount(accountNumber: string, companyName: string): Promise<DojahAccount> {
-  await wait(700);
-  return { account_name: /^0+$/.test(accountNumber) ? "ADAEZE OKAFOR" : companyName.toUpperCase() };
-}
-
-/** Title case for names CAC returns in capitals, keeping words like "LLP" as they are. */
-const titleCase = (name: string) =>
-  name.replace(/\b([A-Z])([A-Z]+)\b/g, (word, first: string, rest: string) =>
-    ["LP", "LLP", "PLC", "NGO"].includes(word) ? word : first + rest.toLowerCase()
-  );
-
-async function lookupCompany(companyType: CompanyType, registrationNumber: string): Promise<CacRecord> {
-  const cac = await fetchDojahCac(companyType, registrationNumber);
-  if (!cac) throw new Error("No company found with that number and type. Check your certificate and try again.");
-  if (cac.status.toUpperCase() !== "ACTIVE") {
-    throw new Error("This company isn’t active on the CAC register, so it can’t be verified yet.");
-  }
-  const { tax_id } = await fetchDojahTin(companyType);
-  return {
-    registrationNumber,
-    companyType,
-    companyName: titleCase(cac.company_name),
-    registeredOn: toIsoDate(cac.date_of_registration),
-    registeredAddress: cac.address,
-    tin: tax_id,
-    people: toPeople(cac.affiliates).map((person) => ({ ...person, fullName: titleCase(person.fullName) })),
-  };
-}
-
-/** The name on the NIN or BVN record, once it matches the person's name. */
-async function verifyPersonId(idType: IdType, idNumber: string, fullName: string) {
-  const label = idType.toUpperCase();
-  const identity = await fetchDojahIdentity(idNumber, fullName);
-  if (!identity) throw new Error(`No record found for this ${label}. Check the number and try again.`);
-  const nameOnId = [identity.first_name, identity.middle_name, identity.last_name].filter(Boolean).join(" ");
-  if (!samePerson(fullName, nameOnId)) {
-    throw new Error(`This ${label} belongs to ${nameOnId.toUpperCase()}, not ${fullName}.`);
-  }
-  return nameOnId.toUpperCase();
-}
 
 /* ------------------------------------------------------------------------------------------------
  * Step 1 · Company details
@@ -338,8 +161,8 @@ function CacRecordCard({ record }: { record: CacRecord }) {
     ["Registration number", `${type?.prefix} ${record.registrationNumber}`],
     ["Type", type?.label],
     ["TIN", record.tin ?? <span className="font-normal text-muted-foreground">Not on file</span>],
-    ["Registered", formatDate(record.registeredOn)],
-    ["Registered address", record.registeredAddress],
+    ["Registered", record.registeredOn ? formatDate(record.registeredOn) : "Not on record"],
+    ["Registered address", record.registeredAddress ?? "Not on record"],
   ];
   return (
     <section
@@ -381,6 +204,79 @@ function CacRecordCard({ record }: { record: CacRecord }) {
   );
 }
 
+function CompanyLogo() {
+  const { control, setError, clearErrors } = useFormContext<CorporateOnboardingFormData>();
+  const { field, fieldState } = useController({ control, name: "companyLogo" });
+  const { data: kyc } = useKycState();
+  const file = field.value;
+  const [preview, setPreview] = useState(() => (file ? URL.createObjectURL(file) : null));
+
+  const choose = (next: File | null) => {
+    if (preview) URL.revokeObjectURL(preview);
+    setPreview(next ? URL.createObjectURL(next) : null);
+    field.onChange(next);
+  };
+
+  const src = preview ?? kyc?.documents.companyLogo?.url ?? null;
+
+  const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
+    accept: COMPANY_LOGO_UPLOAD.accept,
+    maxSize: COMPANY_LOGO_UPLOAD.maxSize,
+    multiple: false,
+    noClick: true,
+    onDropAccepted: ([next]) => {
+      clearErrors("companyLogo");
+      choose(next);
+    },
+    onDropRejected: () => setError("companyLogo", { message: COMPANY_LOGO_UPLOAD.rejectedMessage }),
+  });
+
+  return (
+    <section aria-label="Company logo" className="flex flex-col gap-3">
+      <SectionLabel>Company logo (optional)</SectionLabel>
+      <div
+        {...getRootProps({
+          className: cn(
+            "flex items-center gap-4 rounded-2xl bg-card p-4 ring-1 ring-foreground/10 transition-colors outline-none",
+            isDragActive && "ring-accent"
+          ),
+        })}
+      >
+        <input {...getInputProps({ id: "companyLogo" })} />
+        <span className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-secondary text-muted-foreground">
+          {src ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a local preview or an uploaded logo URL
+            <img src={src} alt="Company logo" className="size-full object-cover" />
+          ) : (
+            <HugeiconsIcon icon={Building06Icon} aria-hidden className="size-6" />
+          )}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">{src ? "Your logo" : "Add your logo"}</span>
+          <span className="block text-xs text-muted-foreground">
+            {file ? file.name : "Shown on your account · JPEG, PNG or WebP up to 5 MB"}
+          </span>
+        </span>
+        <div className="flex shrink-0 gap-1">
+          {file && (
+            <Button type="button" variant="ghost" onClick={() => choose(null)} className="h-9 rounded-full px-3">
+              Remove
+            </Button>
+          )}
+          <Button type="button" variant="outline" onClick={open} className="h-9 rounded-full bg-card px-4">
+            {src ? "Change" : "Upload"}
+          </Button>
+        </div>
+      </div>
+      {fieldState.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {fieldState.error.message}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function CompanyStep() {
   const { control, setValue, setError, clearErrors, getFieldState, formState } =
     useFormContext<CorporateOnboardingFormData>();
@@ -388,10 +284,10 @@ function CompanyStep() {
     control,
     name: ["companyType", "registrationNumber", "company", "operatesAtRegisteredAddress"],
   });
-  const [isLooking, setIsLooking] = useState(false);
+  const lookupBusiness = useLookupBusiness();
   const prefix = companyTypePrefix(companyType);
 
-  const findCompany = async () => {
+  const findCompany = () => {
     const number = registrationNumber.trim();
     if (!REGISTRATION_NUMBER_PATTERN.test(number)) {
       setError(
@@ -402,21 +298,21 @@ function CompanyStep() {
       return;
     }
     clearErrors("registrationNumber");
-    setIsLooking(true);
-    try {
-      const record = await lookupCompany(companyType, number);
-      setValue("company", record, { shouldValidate: true });
-      setValue("signatoryName", "");
-      setValue("signatoryIdNumber", "");
-      setValue("signatoryVerifiedName", null);
-      setValue("tin", "");
-    } catch (error) {
-      setError("registrationNumber", {
-        message: error instanceof Error ? error.message : "We couldn't find that company.",
-      });
-    } finally {
-      setIsLooking(false);
-    }
+    lookupBusiness.mutate(
+      { companyType, registrationNumber: number },
+      {
+        onSuccess: ({ business }) => {
+          if (!business) return;
+          setValue("company", toRecord(business), { shouldValidate: true });
+          setValue("signatoryName", "");
+          setValue("signatoryIdNumber", "");
+          setValue("signatoryVerifiedName", null);
+          setValue("accountName", null);
+          setValue("tin", "");
+        },
+        onError: (error) => setError("registrationNumber", { message: error.message }),
+      }
+    );
   };
 
   const changeCompany = () => {
@@ -478,11 +374,11 @@ function CompanyStep() {
             <Button
               type="button"
               onClick={findCompany}
-              isLoading={isLooking}
+              isLoading={lookupBusiness.isPending}
               disabled={registrationNumber.length < 4}
               className="h-12 rounded-xl text-base"
             >
-              {!isLooking && <HugeiconsIcon icon={Search01Icon} aria-hidden data-icon="inline-start" />}
+              {!lookupBusiness.isPending && <HugeiconsIcon icon={Search01Icon} aria-hidden data-icon="inline-start" />}
               Find my company
             </Button>
           )}
@@ -492,6 +388,8 @@ function CompanyStep() {
       {company && (
         <>
           <CacRecordCard record={company} />
+
+          <CompanyLogo />
 
           <section aria-label={company.tin ? "Contact" : "Tax and contact"} className="flex flex-col gap-4">
             <SectionLabel>{company.tin ? "Contact" : "Tax & contact"}</SectionLabel>
@@ -695,17 +593,32 @@ function IdTypeToggle({
 }
 
 /** The person completing this picks themselves from the CAC record and proves it with their NIN or BVN. */
+const UNLISTED = "__unlisted__";
+
 function SignatoryIdentity() {
   const { control, setValue, setError, clearErrors } = useFormContext<CorporateOnboardingFormData>();
-  const [company, name, idType, idNumber, verifiedName] = useWatch({
+  const [company, name, unlisted, idType, idNumber, verifiedName] = useWatch({
     control,
-    name: ["company", "signatoryName", "signatoryIdType", "signatoryIdNumber", "signatoryVerifiedName"],
+    name: [
+      "company",
+      "signatoryName",
+      "signatoryUnlisted",
+      "signatoryIdType",
+      "signatoryIdNumber",
+      "signatoryVerifiedName",
+    ],
   });
   const { errors } = useFormState({ control, name: ["signatoryIdNumber", "signatoryVerifiedName"] });
-  const [isVerifying, setIsVerifying] = useState(false);
-  const companyType = company?.companyType ?? "limited";
+  const verifySignatory = useVerifySignatory();
+  const { data: kyc } = useKycState();
+  const isVerifying = verifySignatory.isPending;
   const people = company?.people ?? [];
-  const person = people.find((p) => p.fullName === name);
+  const typesName = unlisted || people.length === 0;
+  const person = typesName
+    ? name.trim().length > 1
+      ? { fullName: name.trim(), role: "AUTHORISED SIGNATORY" }
+      : null
+    : people.find((p) => p.fullName === name);
   const idLabel = idType.toUpperCase();
   const idError = errors.signatoryIdNumber?.message ?? errors.signatoryVerifiedName?.message;
 
@@ -715,51 +628,67 @@ function SignatoryIdentity() {
     clearErrors(["signatoryIdNumber", "signatoryVerifiedName"]);
   };
 
-  const verify = async () => {
+  const verify = () => {
     if (!NIN_PATTERN.test(idNumber.trim())) {
       setError("signatoryIdNumber", { message: `${idLabel} must be 11 digits` }, { shouldFocus: true });
       return;
     }
     clearErrors(["signatoryIdNumber", "signatoryVerifiedName"]);
-    setIsVerifying(true);
-    try {
-      const nameOnId = await verifyPersonId(idType, idNumber.trim(), name);
-      setValue("signatoryVerifiedName", nameOnId, { shouldValidate: true });
-    } catch (error) {
-      setError("signatoryIdNumber", {
-        message: error instanceof Error ? error.message : `We couldn't check that ${idLabel}.`,
-      });
-    } finally {
-      setIsVerifying(false);
-    }
+    verifySignatory.mutate(
+      { fullName: name.trim(), idType, idNumber: idNumber.trim() },
+      {
+        onSuccess: ({ signatory }) =>
+          setValue("signatoryVerifiedName", signatory?.verifiedName ?? null, { shouldValidate: true }),
+        onError: (error) => setError("signatoryIdNumber", { message: error.message }),
+      }
+    );
   };
 
   return (
     <section aria-label="Your identity" className="flex flex-col gap-3">
       <SectionLabel>Your identity</SectionLabel>
-      <Controller
-        control={control}
-        name="signatoryName"
-        render={({ field, fieldState }) => (
-          <SelectField
-            {...field}
-            id="signatoryName"
-            label="Your name on the CAC record"
-            placeholder="Choose your name"
-            items={people.map((p) => ({
-              value: p.fullName,
-              label: `${p.fullName} · ${roleLabel(companyType, p.role)}`,
-            }))}
-            contentClassName="light"
-            helpText="Only people listed on the company’s CAC record can complete this."
-            onChange={(next) => {
-              field.onChange(next);
-              resetVerification();
-            }}
-            error={fieldState.error?.message}
-          />
-        )}
-      />
+      {people.length > 0 && (
+        <SelectField
+          id="signatoryChoice"
+          label="Your name on the CAC record"
+          placeholder="Choose your name"
+          value={unlisted ? UNLISTED : name}
+          items={[
+            ...people.map((p) => ({ value: p.fullName, label: `${p.fullName} · ${roleLabel(p.role)}` })),
+            { value: UNLISTED, label: "My name isn’t listed" },
+          ]}
+          contentClassName="light"
+          helpText="Not on the list? You’ll need a letter from the company authorising you."
+          onChange={(next) => {
+            setValue("signatoryUnlisted", next === UNLISTED);
+            setValue("signatoryName", next === UNLISTED ? "" : next, { shouldValidate: next !== UNLISTED });
+            setValue("authorisationLetter", null);
+            resetVerification();
+          }}
+        />
+      )}
+      {typesName && (
+        <Controller
+          control={control}
+          name="signatoryName"
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              id="signatoryName"
+              label="Your full name"
+              placeholder="As it appears on your NIN or BVN"
+              autoComplete="name"
+              readOnly={!!verifiedName}
+              helpText={
+                people.length === 0
+                  ? "CAC doesn’t list anyone for this company, so we’ll ask for a letter authorising you."
+                  : undefined
+              }
+              error={fieldState.error?.message}
+            />
+          )}
+        />
+      )}
 
       {person && (
         <div
@@ -784,7 +713,7 @@ function SignatoryIdentity() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-semibold">{person.fullName}</p>
-              <p className="text-sm text-muted-foreground">{roleLabel(companyType, person.role)}</p>
+              <p className="text-sm text-muted-foreground">{roleLabel(person.role)}</p>
             </div>
           </div>
 
@@ -877,43 +806,59 @@ function SignatoryIdentity() {
           )}
         </div>
       )}
+
+      {verifiedName && kyc?.signatory?.onCacRecord === false && (
+        <DocumentUpload
+          name="authorisationLetter"
+          title="Upload an authorisation letter"
+          description={`On company letterhead, signed by a director or proprietor, naming ${name.trim()} to act for ${company?.companyName ?? "the company"} · JPEG, PNG or PDF up to 10 MB.`}
+          documentLabel="authorisation letter"
+          upload={CORPORATE_DOCUMENT_UPLOAD}
+        />
+      )}
     </section>
   );
 }
 
 function PayoutAccount() {
   const { control, setValue, setError, clearErrors } = useFormContext<CorporateOnboardingFormData>();
-  const [company, bankCode, accountNumber, accountName] = useWatch({
+  const [company, bankCode, bankName, accountNumber, accountName] = useWatch({
     control,
-    name: ["company", "bankCode", "accountNumber", "accountName"],
+    name: ["company", "bankCode", "bankName", "accountNumber", "accountName"],
   });
-  const [isChecking, setIsChecking] = useState(false);
+  const savePayout = useSavePayout();
+  const isChecking = savePayout.isPending;
   const companyName = company?.companyName ?? "";
+  const canRetry = savePayout.isError && !accountName && !!bankCode && accountNumber.length === 10;
+  const canClear = !accountName && (!!bankCode || accountNumber.length > 0);
 
-  const check = async (code: string | undefined, number: string) => {
+  const clear = () => {
+    savePayout.reset();
+    setValue("bankName", "");
+    setValue("bankCode", undefined);
+    setValue("accountNumber", "");
+    setValue("accountName", null);
+    clearErrors(["bankName", "accountNumber"]);
+  };
+
+  const check = (code: string | undefined, name: string, number: string) => {
     setValue("accountName", null);
     if (!code || number.length !== 10) return;
     clearErrors("accountNumber");
-    setIsChecking(true);
-    try {
-      const { account_name: name } = await fetchDojahAccount(number, companyName);
-      if (sameCompanyName(name, companyName)) {
-        setValue("accountName", name, { shouldValidate: true });
-      } else {
-        setError("accountNumber", {
-          message: `This account belongs to ${name}. Payouts can only go to an account in the company’s name.`,
-        });
+    savePayout.mutate(
+      { bankCode: code, bankName: name, accountNumber: number },
+      {
+        onSuccess: ({ payout }) => setValue("accountName", payout?.accountName ?? null, { shouldValidate: true }),
+        onError: (error) => setError("accountNumber", { message: error.message }),
       }
-    } finally {
-      setIsChecking(false);
-    }
+    );
   };
 
   const bank = findBank({ code: bankCode });
 
   return (
     <section aria-label="Payout account" className="flex flex-col gap-4">
-      <SectionLabel>Payout account</SectionLabel>
+      <SectionLabel>Payout account (optional)</SectionLabel>
       <div className="grid gap-4 sm:grid-cols-2">
         <Controller
           control={control}
@@ -926,7 +871,7 @@ function PayoutAccount() {
                 setValue("bankCode", next?.code);
                 field.onChange(next?.name ?? "");
                 field.onBlur();
-                void check(next?.code, accountNumber);
+                check(next?.code, next?.name ?? "", accountNumber);
               }}
               error={fieldState.error?.message}
             />
@@ -947,7 +892,7 @@ function PayoutAccount() {
               onChange={(v) => {
                 const digits = v.replace(/\D/g, "").slice(0, 10);
                 field.onChange(digits);
-                void check(bankCode, digits);
+                check(bankCode, bankName, digits);
               }}
               error={fieldState.error?.message}
               inputClassName="tracking-widest tabular-nums"
@@ -985,11 +930,30 @@ function PayoutAccount() {
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              Must be a corporate account in the name <span className="font-medium text-foreground">{companyName}</span>
-              .
+              Add it now or later from Withdrawals. It must be in the name{" "}
+              <span className="font-medium text-foreground">{companyName}</span>.
             </p>
           )}
         </div>
+        {!isChecking && (canRetry || canClear) && (
+          <div className="flex shrink-0 gap-1">
+            {canClear && (
+              <Button type="button" variant="ghost" onClick={clear} className="h-9 rounded-full px-3">
+                Clear
+              </Button>
+            )}
+            {canRetry && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => check(bankCode, bankName, accountNumber)}
+                className="h-9 rounded-full bg-card px-4"
+              >
+                Try again
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -1100,45 +1064,134 @@ function AuthorisationStep({ onEdit }: { onEdit: (step: number) => void }) {
  * ---------------------------------------------------------------------------------------------- */
 
 export function CorporateOnboarding() {
+  const { data: kyc } = useKycState();
+  return kyc ? <CorporateFlow kyc={kyc} /> : null;
+}
+
+const stepFor = ({ nextStep }: KycState) => {
+  if (nextStep === "upload_documents") return 1;
+  if (["verify_signatory", "upload_authorisation", "submit"].includes(nextStep)) return LAST_STEP;
+  return 0;
+};
+
+const formValuesFor = ({ business, signatory, payout }: KycState): CorporateOnboardingFormData => ({
+  ...CORPORATE_ONBOARDING_DEFAULT_VALUES,
+  ...(business && {
+    companyType: business.companyType,
+    registrationNumber: business.registrationNumber,
+    company: toRecord(business),
+    tin: business.tinFromRegistry ? "" : (business.tin ?? ""),
+    businessEmail: business.email ?? "",
+    businessPhone: { number: business.phone ?? "", countryCode: "NG" },
+    operatesAtRegisteredAddress: !business.operatingAddress,
+    operatingAddress: business.operatingAddress?.line1 ?? "",
+    operatingCity: business.operatingAddress?.city ?? "",
+    operatingState: business.operatingAddress?.state ?? "",
+    operatingLga: business.operatingAddress?.lga ?? "",
+  }),
+  ...(signatory && {
+    signatoryName: signatory.fullName,
+    signatoryUnlisted: !signatory.onCacRecord,
+    signatoryIdType: signatory.idType,
+    signatoryVerifiedName: signatory.verifiedName,
+  }),
+  ...(payout && {
+    bankName: payout.bankName,
+    bankCode: payout.bankCode,
+    accountNumber: payout.accountNumber,
+    accountName: payout.accountName,
+  }),
+});
+
+function CorporateFlow({ kyc }: { kyc: KycState }) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => stepFor(kyc));
   const [submitted, setSubmitted] = useState<{ companyName: string; email: string } | null>(null);
+  const saveDetails = useSaveBusinessDetails();
+  const uploadBill = useUploadUtilityBill();
+  const uploadLetter = useUploadAuthorisationLetter();
+  const uploadLogo = useUploadCompanyLogo();
+  const submitKyc = useSubmitKyc();
   const form = useForm({
     resolver: zodResolver(corporateOnboardingSchema),
-    defaultValues: CORPORATE_ONBOARDING_DEFAULT_VALUES,
+    defaultValues: formValuesFor(kyc),
     mode: "onTouched",
   });
   const values = useWatch({ control: form.control });
-  const isStepValid = STEPS[currentStep].schema.safeParse(values).success;
+  const hasProofOfAddress = !!values.addressProof || !!kyc.documents.utilityBill;
+  const needsLetter = kyc.signatory?.onCacRecord === false;
+  const hasLetter = !!values.authorisationLetter || !!kyc.documents.authorisationLetter;
+  const isStepValid =
+    STEPS[currentStep].schema.safeParse(values).success &&
+    (currentStep !== 1 || hasProofOfAddress) &&
+    (currentStep !== LAST_STEP || !needsLetter || hasLetter);
+  const isSaving =
+    saveDetails.isPending ||
+    uploadBill.isPending ||
+    uploadLetter.isPending ||
+    uploadLogo.isPending ||
+    submitKyc.isPending;
 
   const goToStep = (step: number) => {
     setCurrentStep(step);
     window.scrollTo({ top: 0 });
   };
 
-  const submit = form.handleSubmit((data) => {
-    // ponytail: no KYB endpoint yet; post this as multipart once it exists.
-    console.log("KYB onboarding submitted", data);
-    setSubmitted({
-      companyName: data.company?.companyName ?? "your company",
-      email: data.businessEmail,
-    });
-    form.reset();
-    setKycStatus("pending");
-    goToStep(0);
-  });
+  const save = async () => {
+    const data = form.getValues();
+    if (currentStep === 0) {
+      await saveDetails.mutateAsync({
+        tin: data.company?.tin ? undefined : data.tin.trim(),
+        email: data.businessEmail.trim(),
+        phone: phoneNumberToE164(data.businessPhone),
+        operatingAddress: data.operatesAtRegisteredAddress
+          ? null
+          : {
+              line1: data.operatingAddress,
+              city: data.operatingCity,
+              lga: data.operatingLga,
+              state: data.operatingState,
+              country: "NG",
+            },
+      });
+      if (data.companyLogo) await uploadLogo.mutateAsync(data.companyLogo);
+      return;
+    }
+    if (currentStep === 1) {
+      if (data.addressProof) await uploadBill.mutateAsync(data.addressProof);
+      return;
+    }
+    if (data.authorisationLetter) await uploadLetter.mutateAsync(data.authorisationLetter);
+    await submitKyc.mutateAsync();
+    setSubmitted({ companyName: data.company?.companyName ?? "your company", email: data.businessEmail });
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (currentStep === LAST_STEP) return submit(event);
     const canContinue = await form.trigger(STEPS[currentStep].fields, { shouldFocus: true });
-    if (canContinue) goToStep(currentStep + 1);
+    if (!canContinue) return;
+    try {
+      await save();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong. Try again.");
+      return;
+    }
+    if (currentStep < LAST_STEP) goToStep(currentStep + 1);
   };
+
+  if (!submitted && (kyc.nextStep === "await_review" || kyc.nextStep === "complete")) {
+    return (
+      <OnboardingSuccess
+        submitted={["Company details", "Proof of address", "Your identity", ...(kyc.payout ? ["Payout account"] : [])]}
+        message="We’re reviewing your business now. We’ll email you as soon as you’re approved."
+      />
+    );
+  }
 
   if (submitted) {
     return (
       <OnboardingSuccess
-        submitted={["Company details", "Proof of address", "Your identity", "Payout account"]}
+        submitted={["Company details", "Proof of address", "Your identity", ...(kyc.payout ? ["Payout account"] : [])]}
         message={
           <>
             We&apos;re reviewing <span className="font-medium text-foreground">{submitted.companyName}</span>. Business
@@ -1183,6 +1236,14 @@ export function CorporateOnboarding() {
               key={currentStep}
               className="mx-auto flex w-full max-w-[600px] flex-1 animate-in flex-col gap-8 px-5 pt-4 pb-10 duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none"
             >
+              {kyc.rejectionReason && (
+                <p
+                  role="alert"
+                  className="rounded-2xl bg-destructive/8 p-4 text-sm text-destructive ring-1 ring-destructive/20"
+                >
+                  {kyc.rejectionReason}
+                </p>
+              )}
               {currentStep === 0 && <CompanyStep />}
               {currentStep === 1 && <AddressProofStep onEditAddress={() => goToStep(0)} />}
               {currentStep === LAST_STEP && <AuthorisationStep onEdit={goToStep} />}
@@ -1191,7 +1252,7 @@ export function CorporateOnboarding() {
               <div className="mx-auto w-full max-w-[600px] px-5 pb-6">
                 <Button
                   type="submit"
-                  isLoading={form.formState.isSubmitting}
+                  isLoading={isSaving}
                   disabled={!isStepValid}
                   className="h-13 w-full rounded-xl text-base"
                 >

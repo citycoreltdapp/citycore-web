@@ -1,7 +1,10 @@
 "use client";
 
+import { authFlow, useResetPassword } from "@/actions/auth";
 import { PasswordField } from "@/components/primitives/password-field";
+import { toast } from "@/components/ui/toast";
 import { type ResetPasswordFormData, resetPasswordSchema } from "@/constant/auth";
+import { fieldErrors } from "@/lib/api-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { SquareLock02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -13,6 +16,7 @@ import { AuthForm, AuthQuoteBanner, AuthShell } from "../_shared";
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const resetPassword = useResetPassword();
 
   const form = useForm<ResetPasswordFormData>({
     resolver: zodResolver(resetPasswordSchema),
@@ -27,13 +31,31 @@ export default function ResetPasswordPage() {
         icon={<HugeiconsIcon icon={SquareLock02Icon} />}
         title="Set New Password"
         subtitle="Enter your new password to complete the reset process"
-        // ponytail: no backend yet, call the reset-password API here.
-        onSubmit={form.handleSubmit(() => {
-          form.reset();
-          router.push("/dashboard/reset-password/success");
+        onSubmit={form.handleSubmit(({ password }) => {
+          const { email, code } = authFlow.get();
+          if (!email || !code) {
+            toast.add({ type: "warning", title: "Start again", description: "Your reset code has expired." });
+            router.replace("/dashboard/forgot-password");
+            return;
+          }
+          resetPassword.mutate(
+            { email, code, newPassword: password },
+            {
+              onSuccess: () => {
+                authFlow.clear();
+                form.reset();
+                router.push("/dashboard/reset-password/success");
+              },
+              onError: (error) => {
+                const fields = fieldErrors(error);
+                if (fields.newPassword) form.setError("password", { message: fields.newPassword });
+                else toast.add({ type: "error", title: "Couldn't reset your password", description: error.message });
+              },
+            }
+          );
         })}
         submitLabel="Save New Password"
-        isPending={form.formState.isSubmitting}
+        isPending={resetPassword.isPending}
         isSubmitDisabled={!form.formState.isValid}
         footer={
           <>

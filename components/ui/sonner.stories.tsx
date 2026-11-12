@@ -5,7 +5,7 @@ import { Button } from "./button";
 
 // The Toaster itself is mounted by Providers, in the app and in every story.
 const meta = {
-  title: "UI/Toast",
+  title: "UI/Sonner",
   parameters: { layout: "centered" },
   tags: ["autodocs"],
 } satisfies Meta;

@@ -1,4 +1,5 @@
 /** Public Zod contracts for forms and future API boundaries. See schemas/README.md for the wiring map. */
+export * from "./schemas/auth";
 export * from "./schemas/common";
 export * from "./schemas/dashboard";
 export * from "./schemas/marketplace";

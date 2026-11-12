@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Suspense } from "react";
 
+import { useCurrentUser } from "@/actions/auth";
 import { CardMenu } from "@/components/dashboard/card-menu";
 import { DataTable } from "@/components/primitives/data-table";
 import { LineChart } from "@/components/primitives/line-chart";
@@ -13,13 +14,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { homeDashboardSchema } from "@/constant/schemas/dashboard";
 import { walletSchema } from "@/constant/schemas/finance";
-import { API_ROUTES } from "@/lib/api";
-import { useApiQuery } from "@/lib/query";
+import { useMockQuery } from "@/lib/query";
 import { AddCircleIcon, ArrowRight02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { type ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 
+import { CompanyProfileCard, CorporateBanner, greeting } from "./_corporate-home";
 import { CHART_RANGES, type ChartRange, HOME_DASHBOARD, portfolioSeries, totalBalance } from "./_data";
 import { naira } from "./marketplace/page";
 import { type Transaction } from "./transactions/_data";
@@ -39,8 +40,8 @@ function axisTicks(values: number[]) {
 }
 
 function AssetsCard() {
-  const { data: dashboard } = useApiQuery({
-    path: API_ROUTES.dashboard,
+  const { data: dashboard } = useMockQuery({
+    key: "dashboard",
     schema: homeDashboardSchema,
     mock: HOME_DASHBOARD,
   });
@@ -155,12 +156,12 @@ function TableCard({ title, href, children }: { title: string; href: string; chi
 const ZEBRA_ROWS = "border-none even:bg-muted/60 hover:bg-muted/60";
 
 function TransactionTables() {
-  const { data: dashboard } = useApiQuery({
-    path: API_ROUTES.dashboard,
+  const { data: dashboard } = useMockQuery({
+    key: "dashboard",
     schema: homeDashboardSchema,
     mock: HOME_DASHBOARD,
   });
-  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const { data: wallet } = useMockQuery({ key: "wallet", schema: walletSchema, mock: WALLET });
   const accounts: WalletAccount[] = wallet
     ? [
         ...(wallet.fundingAccount ? [{ id: "funding", role: "Funding account", ...wallet.fundingAccount }] : []),
@@ -234,17 +235,14 @@ function BannerArt() {
 }
 
 function WelcomeBanner() {
-  const { data: dashboard } = useApiQuery({
-    path: API_ROUTES.dashboard,
-    schema: homeDashboardSchema,
-    mock: HOME_DASHBOARD,
-  });
+  const { data: user } = useCurrentUser();
 
   return (
     <section className="relative overflow-hidden rounded-xl bg-[#121212] p-6 text-white md:p-8">
       <div className="relative z-10 max-w-xl lg:mr-48">
         <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
-          Good morning, {dashboard?.firstName ?? ""}. 👋
+          {greeting()}
+          {user && `, ${user.name.split(" ")[0]}`}. 👋
         </h2>
         <p className="mt-3 text-sm/6 text-white/70 md:text-base/7">
           We are here to provide you with reliable informations and Investments opportunity. don&apos;t miss out on this
@@ -283,15 +281,17 @@ function StatCard({ title, amount, detail }: { title: string; amount: string; de
 }
 
 export default function Client$DashboardPage() {
-  const { data: dashboard } = useApiQuery({
-    path: API_ROUTES.dashboard,
+  const { data: user } = useCurrentUser();
+  const isCorporate = user?.accountType === "corporate";
+  const { data: dashboard } = useMockQuery({
+    key: "dashboard",
     schema: homeDashboardSchema,
     mock: HOME_DASHBOARD,
   });
   const stats = dashboard
     ? [
         {
-          title: "Wallet balance",
+          title: isCorporate ? "Treasury balance" : "Wallet balance",
           amount: naira(dashboard.walletBalance),
           detail: `Total balance ${naira(totalBalance(dashboard))}`,
         },
@@ -302,7 +302,7 @@ export default function Client$DashboardPage() {
           detail: `${dashboard.averageYield}% average yield`,
         },
         {
-          title: "Active investments",
+          title: isCorporate ? "Active positions" : "Active investments",
           amount: String(dashboard.activeInvestments),
           detail: dashboard.nextPayout
             ? `Next payout ${PAYOUT_DATE.format(new Date(dashboard.nextPayout))}`
@@ -313,12 +313,12 @@ export default function Client$DashboardPage() {
 
   return (
     <>
-      <WelcomeBanner />
+      {isCorporate ? <CorporateBanner /> : <WelcomeBanner />}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{isCorporate ? "Treasury overview" : "Dashboard"}</h1>
         <Button className="h-10 rounded-full px-4" nativeButton={false} render={<Link href="/dashboard/wallet" />}>
           <HugeiconsIcon icon={AddCircleIcon} aria-hidden />
-          Fund wallet
+          {isCorporate ? "Fund treasury" : "Fund wallet"}
         </Button>
       </div>
 
@@ -328,7 +328,14 @@ export default function Client$DashboardPage() {
         ))}
       </div>
 
-      <AssetsCard />
+      {isCorporate ? (
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <AssetsCard />
+          <CompanyProfileCard />
+        </div>
+      ) : (
+        <AssetsCard />
+      )}
 
       <Suspense fallback={<Skeleton className="h-150 rounded-xl" />}>
         <TransactionTables />

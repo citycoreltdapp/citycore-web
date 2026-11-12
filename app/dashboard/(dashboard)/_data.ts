@@ -1,4 +1,4 @@
-// ponytail: same figures as the mobile HomeMockData.dashboard(). Replace with fromApi(homeDashboardSchema, GET /dashboard).
+// ponytail: same figures as the mobile HomeMockData.dashboard(). Replace with an actions/ hook once GET /dashboard exists.
 import type { ChartRange, HomeDashboard } from "@/constant/schemas/dashboard";
 
 import { TRANSACTIONS } from "./transactions/_data";

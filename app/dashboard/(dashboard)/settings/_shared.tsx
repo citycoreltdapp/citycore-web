@@ -65,13 +65,21 @@ export function SettingsPanel({
   );
 }
 
-export function FormActions({ onCancel, disabled = false }: { onCancel: () => void; disabled?: boolean }) {
+export function FormActions({
+  onCancel,
+  disabled = false,
+  isPending = false,
+}: {
+  onCancel: () => void;
+  disabled?: boolean;
+  isPending?: boolean;
+}) {
   return (
     <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-4">
-      <Button type="button" variant="ghost" className="h-10 rounded-full px-4" onClick={onCancel}>
+      <Button type="button" variant="ghost" className="h-10 rounded-full px-4" onClick={onCancel} disabled={isPending}>
         Cancel
       </Button>
-      <Button type="submit" className="h-10 rounded-full px-5" disabled={disabled}>
+      <Button type="submit" className="h-10 rounded-full px-5" disabled={disabled} isLoading={isPending}>
         Save changes
       </Button>
     </div>

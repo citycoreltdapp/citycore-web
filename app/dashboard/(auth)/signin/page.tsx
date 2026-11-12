@@ -1,32 +1,28 @@
 "use client";
 
+import { authFlow, useLogin, useRequestEmailVerification } from "@/actions/auth";
 import { PasswordField } from "@/components/primitives/password-field";
 import { TextField } from "@/components/primitives/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "@/components/ui/toast";
 import { type SignInFormData, signInSchema } from "@/constant/auth";
-import { API_ROUTES } from "@/lib/api";
-import { api, isMockApi } from "@/lib/api-client";
-import { setSession } from "@/lib/auth-tokens";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
-import { z } from "zod";
 
 import { AuthForm, AuthShell } from "../_shared";
 
-const sessionSchema = z.object({ accessToken: z.string(), user: z.object({ kycCompleted: z.boolean() }) });
-
 export default function SignInPage() {
   const router = useRouter();
+  const login = useLogin();
+  const requestVerification = useRequestEmailVerification();
 
   const form = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "", remember: false },
-    // The submit button stays disabled until the form is valid, so errors show as each field is left.
     mode: "onTouched",
   });
 
@@ -37,27 +33,41 @@ export default function SignInPage() {
       <AuthForm
         title="Welcome Back"
         subtitle="Sign in to your account"
-        onSubmit={form.handleSubmit(async ({ email, password }) => {
-          // Mock mode signs anyone in, straight to onboarding.
-          if (isMockApi) {
-            form.reset();
-            router.push("/dashboard/onboarding");
-            return;
-          }
-          const result = await api.post(API_ROUTES.login, { email, password }, { schema: sessionSchema });
-          if (!result.ok) {
-            if (result.error.code === "INVALID_CREDENTIALS")
-              form.setError("password", { message: result.error.message });
-            else toast.error(result.error.message);
-            return;
-          }
-          setSession(result.data.accessToken);
-          form.reset();
-          router.push(result.data.user.kycCompleted ? "/dashboard" : "/dashboard/onboarding");
-        })}
+        onSubmit={form.handleSubmit(({ email, password }) =>
+          login.mutate(
+            { email, password },
+            {
+              onSuccess: (result) => {
+                form.reset();
+                if ("verificationRequired" in result) {
+                  authFlow.set({ email: result.email });
+                  return router.push(`/dashboard/signin/verify${window.location.search}`);
+                }
+                const { user } = result;
+                if (!user.emailVerified) {
+                  authFlow.set({ email: user.email });
+                  requestVerification.mutate({ email: user.email });
+                  toast.add({
+                    type: "info",
+                    title: "Verify your email",
+                    description: "We sent a 6-digit code to your inbox.",
+                  });
+                  return router.push("/dashboard/signup/verify");
+                }
+                const next = new URLSearchParams(window.location.search).get("next");
+                const safeNext = next?.startsWith("/dashboard") && !next.startsWith("//") ? next : null;
+                router.push(safeNext ?? "/dashboard");
+              },
+              onError: (error) => {
+                if (error.code === "INVALID_CREDENTIALS") form.setError("password", { message: error.message });
+                else toast.add({ type: "error", title: "Couldn't sign you in", description: error.message });
+              },
+            }
+          )
+        )}
         onDismissErrors={hasErrors ? () => form.clearErrors() : undefined}
         submitLabel="Sign in"
-        isPending={form.formState.isSubmitting}
+        isPending={login.isPending}
         isSubmitDisabled={!form.formState.isValid}
         footer={
           <>

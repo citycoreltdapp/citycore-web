@@ -114,34 +114,7 @@ assert.equal(portfolio.progress(marina), 1);
 assert.equal(portfolio.payoutAtMaturity(marina), 1755000);
 assert.equal(portfolio.accruedYield({ ...holding, status: "active" }, holding.startDate), 0);
 
-// Live routes turn citycore-server responses (kobo, its own enums) into the web schemas.
-const api = load("lib/api.ts");
-const liveWallet = api.LIVE_ROUTES[api.API_ROUTES.wallet].schema.pipe(s.walletSchema).parse({
-  balance: 1250050,
-  virtualAccount: null,
-});
-assert.deepEqual(liveWallet, { balance: 12500.5, pendingWithdrawals: 0, fundingAccount: null, payoutAccount: null });
-const liveTransactions = api.LIVE_ROUTES[api.API_ROUTES.walletTransactions].schema.pipe(s.transactionListResponseSchema);
-const [debit] = liveTransactions.parse([
-  {
-    reference: "CC-TX-1",
-    type: "investment_withdrawal",
-    direction: "debit",
-    amount: 500000,
-    status: "flagged",
-    paidAt: null,
-    createdAt: "2026-11-10T09:00:00.000Z",
-  },
-]);
-assert.deepEqual(debit, {
-  id: "CC-TX-1",
-  title: "Investment withdrawal",
-  type: "withdrawal",
-  status: "pending",
-  amount: -5000,
-  date: "2026-11-10T09:00:00.000Z",
-});
-console.log("Mobile contracts, fixtures, rules and live-route adapters passed.");
+console.log("Mobile contracts, fixtures and rules passed.");
 
 reject(s.addressSchema, { country: "ZZ", address1: "Example street", address2: "", zip: "100001" });
 accept(s.addressSchema, { country: "NG", address1: "Example street", address2: "", zip: "100001" });

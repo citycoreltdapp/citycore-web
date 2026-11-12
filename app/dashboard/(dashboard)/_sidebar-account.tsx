@@ -1,18 +1,16 @@
 "use client";
 
+import { initials, useCurrentUser, useLogout } from "@/actions/auth";
 import { AppModal } from "@/components/primitives/app-modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { KycStatus } from "@/constant/onboarding";
-import { signOut } from "@/lib/api-client";
 import { useKycStatus } from "@/lib/verification-status";
 import { ArrowRight01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "cn";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-import { PROFILE } from "./_data";
 
 const STATUS = {
   notStarted: {
@@ -34,8 +32,12 @@ const STATUS = {
 /** The investor's account at the foot of the sidebar: who's signed in, their KYC status, and log out. */
 export function SidebarAccount() {
   const router = useRouter();
+  const logout = useLogout();
+  const { data: user } = useCurrentUser();
   const status = useKycStatus();
   const meta = status ? STATUS[status] : null;
+  const cta =
+    status === "notStarted" && user?.accountType === "corporate" ? "Verify your business · 3 steps" : meta?.cta;
 
   return (
     <div className="flex flex-col gap-2">
@@ -46,7 +48,7 @@ export function SidebarAccount() {
         >
           <span className="min-w-0">
             <span className="block text-sm font-semibold">Unlock investing</span>
-            <span className="block text-xs text-white/60">{meta.cta}</span>
+            <span className="block text-xs text-white/60">{cta}</span>
           </span>
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground transition-transform group-hover:translate-x-0.5">
             <HugeiconsIcon icon={ArrowRight01Icon} aria-hidden className="size-4" />
@@ -56,19 +58,16 @@ export function SidebarAccount() {
 
       <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5">
         <Avatar className="size-9">
-          <AvatarImage src="/assets/images/investors/investor-avatar-02.jpg" alt="" />
-          <AvatarFallback>{PROFILE.firstName[0]}</AvatarFallback>
+          {user?.avatar && <AvatarImage src={user.avatar} alt="" />}
+          <AvatarFallback>{initials(user?.name)}</AvatarFallback>
         </Avatar>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold">
-            {PROFILE.firstName} {PROFILE.lastName}
-          </span>
+          <span className="block truncate text-sm font-semibold">{user?.name}</span>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full bg-muted-foreground/40", meta?.dot)} />
             <span className="truncate">{meta?.label ?? "Investor"}</span>
           </span>
         </span>
-        {/* ponytail: no sessions yet, so this only goes to sign-in. Sign out through the API here. */}
         <Button
           variant="ghost"
           size="icon"
@@ -78,7 +77,7 @@ export function SidebarAccount() {
               title: "Log out?",
               description: "You'll need to sign in again to get back in.",
               confirmLabel: "Log out",
-              onConfirm: () => signOut().then(() => router.push("/dashboard/signin")),
+              onConfirm: () => logout.mutate(undefined, { onSettled: () => router.push("/dashboard/signin") }),
             })
           }
           className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"

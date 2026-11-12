@@ -1,34 +1,47 @@
 "use client";
 
-// The refresh token is an httpOnly cookie the server sets, so scripts never see it. The access token lives in
-// memory only; after a reload the client gets a new one from the cookie.
-const SIGNED_IN_KEY = "citycore.signedIn";
+import { SESSION_COOKIE } from "@/constant/auth";
+
+const SESSION_DAYS = 7;
+const EXPIRY_MARGIN_MS = 30_000;
 export const SESSION_EXPIRED_EVENT = "citycore:session-expired";
 
 let accessToken: string | null = null;
+let expiresAt = 0;
 
-export const getAccessToken = () => accessToken;
-
-/** Whether a refresh cookie is worth trying, so signed-out visitors don't make a pointless call. */
-export function hasSession() {
+function readExpiry(token: string) {
   try {
-    return localStorage.getItem(SIGNED_IN_KEY) === "1";
+    const { exp } = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return typeof exp === "number" ? exp * 1000 : 0;
   } catch {
-    return false;
+    return 0;
   }
+}
+
+function writeCookie(value: string, maxAge: number) {
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${SESSION_COOKIE}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Strict${secure}`;
+}
+
+export function getAccessToken() {
+  if (accessToken && expiresAt && Date.now() > expiresAt - EXPIRY_MARGIN_MS) accessToken = null;
+  return accessToken;
+}
+
+export function hasSession() {
+  return typeof document !== "undefined" && document.cookie.split("; ").includes(`${SESSION_COOKIE}=1`);
 }
 
 export function setSession(token: string) {
   accessToken = token;
-  try {
-    localStorage.setItem(SIGNED_IN_KEY, "1");
-  } catch {}
+  expiresAt = readExpiry(token);
+  writeCookie("1", SESSION_DAYS * 86_400);
 }
 
 export function clearSession({ expired = false } = {}) {
   accessToken = null;
-  try {
-    localStorage.removeItem(SIGNED_IN_KEY);
-  } catch {}
-  if (expired && typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+  expiresAt = 0;
+  if (typeof document === "undefined") return;
+  writeCookie("", 0);
+  if (expired) window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
 }

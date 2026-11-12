@@ -2,15 +2,16 @@
 
 import { Suspense } from "react";
 
+import { authFlow, useRegister } from "@/actions/auth";
 import { FieldError } from "@/components/primitives/field";
 import { PasswordField } from "@/components/primitives/password-field";
 import { TextField } from "@/components/primitives/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { toast } from "@/components/ui/toast";
 import { type SignUpFormData, signUpSchema } from "@/constant/auth";
 import { setAccountType } from "@/lib/account-type";
-import { ReferralCodeError, resolveReferralCode } from "@/lib/referrals";
-import { setReferredBy } from "@/lib/referred-by";
+import { fieldErrors } from "@/lib/api-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Briefcase01Icon,
@@ -24,7 +25,6 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
-import { toast } from "sonner";
 
 import { AuthForm, AuthInvestorsBanner, AuthShell } from "../_shared";
 
@@ -37,6 +37,7 @@ const ACCOUNT_TYPE_OPTIONS = [
 
 function SignUpForm() {
   const router = useRouter();
+  const register = useRegister();
   const searchParams = useSearchParams();
 
   const form = useForm<SignUpFormData>({
@@ -58,27 +59,33 @@ function SignUpForm() {
     <AuthForm
       title="Get Started Now"
       subtitle="Let’s create your account"
-      onSubmit={form.handleSubmit(async ({ accountType, referrer: code }) => {
-        let referrer = null;
-        if (code) {
-          try {
-            referrer = await resolveReferralCode(code);
-          } catch (error) {
-            const message =
-              error instanceof ReferralCodeError ? error.message : "Could not check this code. Try again.";
-            form.setError("referrer", { message });
-            return;
-          }
-        }
-        setReferredBy(referrer);
-        setAccountType(accountType);
-        if (referrer) toast.success(`Referred by ${referrer.name}`);
-        form.reset();
-        router.push("/dashboard/signup/verify");
-      })}
+      onSubmit={form.handleSubmit((values) =>
+        register.mutate(values, {
+          onSuccess: () => {
+            setAccountType(values.accountType);
+            authFlow.set({ email: values.email });
+            toast.add({
+              type: "success",
+              title: "Account created",
+              description: "We sent a 6-digit code to your email.",
+            });
+            form.reset();
+            router.push("/dashboard/signup/verify");
+          },
+          onError: (error) => {
+            const fields = Object.entries(fieldErrors(error)).filter(([name]) => name in values);
+            if (["INVALID_REFERRAL_CODE", "SELF_REFERRAL"].includes(error.code))
+              form.setError("referrer", { message: error.message });
+            else if (error.code === "DUPLICATE_VALUE") form.setError("email", { message: error.message });
+            else if (fields.length)
+              for (const [name, message] of fields) form.setError(name as keyof typeof values, { message });
+            else toast.add({ type: "error", title: "Couldn't create your account", description: error.message });
+          },
+        })
+      )}
       onDismissErrors={hasErrors ? () => form.clearErrors() : undefined}
       submitLabel="Sign up"
-      isPending={form.formState.isSubmitting}
+      isPending={register.isPending}
       isSubmitDisabled={!form.formState.isValid}
       footer={
         <>

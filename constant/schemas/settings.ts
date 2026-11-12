@@ -4,18 +4,19 @@ import { z } from "zod";
 
 import { resourceIdSchema as settingsId, timestampSchema as settingsTimestamp } from "./common";
 
-export const profileSchema = z.object({
-  firstName: z.string().trim().min(1, "Enter your first name").max(80),
-  lastName: z.string().trim().min(1, "Enter your last name").max(80),
-  email: z.string().trim().pipe(z.email("Enter a valid email address")),
-  phone: z
-    .object({ number: z.string(), countryCode: z.string() })
-    .refine((value) => !value.number.trim() || isPhoneNumberValid(value), "Enter a valid phone number"),
-  gender: z.enum(["Male", "Female", "Prefer not to say"]),
-  tagline: z.string().max(500, "Keep your tagline under 500 characters"),
-  privacy: z.boolean().refine(Boolean, "Please acknowledge the privacy policy"),
-  terms: z.boolean().refine(Boolean, "Please acknowledge the terms and conditions"),
-});
+export const profileSchema = z
+  .object({
+    firstName: z.string().trim().min(1, "Enter your first name").max(50),
+    lastName: z.string().trim().min(1, "Enter your last name").max(50),
+    phone: z
+      .object({ number: z.string(), countryCode: z.string() })
+      .refine((value) => !value.number.trim() || isPhoneNumberValid(value), "Enter a valid phone number"),
+    gender: z.enum(["male", "female", "prefer_not_to_say"]).nullable(),
+  })
+  .refine((value) => `${value.firstName} ${value.lastName}`.length <= 100, {
+    path: ["lastName"],
+    message: "Your full name must be at most 100 characters",
+  });
 export type ProfileValues = z.infer<typeof profileSchema>;
 export const addressSchema = z.object({
   country: z
@@ -24,7 +25,9 @@ export const addressSchema = z.object({
     .refine((value) => Object.hasOwn(countries, value), "Select a supported country"),
   address1: z.string().trim().min(1, "Enter your address").max(200),
   address2: z.string().trim().max(200),
-  zip: z.string().trim().min(1, "Enter your postal code").max(20),
+  city: z.string().trim().min(1, "Enter your city").max(100),
+  state: z.string().trim().min(1, "Enter your state").max(100),
+  zip: z.string().trim().max(20),
 });
 export type AddressValues = z.infer<typeof addressSchema>;
 export const PASSWORD_RULES = [
@@ -34,27 +37,36 @@ export const PASSWORD_RULES = [
   { label: "At least 1 number (0–9)", test: (value: string) => /[0-9]/.test(value) },
   { label: "At least 1 special character", test: (value: string) => /[^A-Za-z0-9\s]/.test(value) },
 ];
+const newPassword = z
+  .string()
+  .refine((value) => new TextEncoder().encode(value).length <= 72, "Keep your password under 72 characters")
+  .refine((value) => PASSWORD_RULES.every((rule) => rule.test(value)), "Your new password must meet all requirements");
+
+const passwordsMatch = {
+  path: ["confirmPassword"],
+  message: "Passwords don't match",
+  when: () => true,
+};
+
 export const passwordSchema = z
   .object({
     oldPassword: z.string().min(1, "Enter your current password"),
-    newPassword: z
-      .string()
-      .max(128, "Keep your password under 128 characters")
-      .refine(
-        (value) => PASSWORD_RULES.every((rule) => rule.test(value)),
-        "Your new password must meet all requirements"
-      ),
+    newPassword,
     confirmPassword: z.string().min(1, "Confirm your new password"),
   })
-  .refine((value) => value.newPassword === value.confirmPassword, {
-    path: ["confirmPassword"],
-    message: "Passwords don't match",
-    when: () => true,
-  })
+  .refine((value) => value.newPassword === value.confirmPassword, passwordsMatch)
   .refine((value) => value.newPassword !== value.oldPassword, {
     path: ["newPassword"],
     message: "Choose a different password from your current one",
   });
+
+export const newPasswordSchema = z
+  .object({
+    oldPassword: z.string(),
+    newPassword,
+    confirmPassword: z.string().min(1, "Confirm your new password"),
+  })
+  .refine((value) => value.newPassword === value.confirmPassword, passwordsMatch);
 
 // API contracts use normalized contact details, independently of the phone field's editable form value.
 
@@ -65,34 +77,10 @@ export const twoFactorPreferencesFormSchema = twoFactorSelectionSchema.refine(
   (value) => Object.values(value).some(Boolean),
   "Choose at least one verification method"
 );
-export const updateProfileRequestSchema = z.strictObject({
-  firstName: profileSchema.shape.firstName,
-  lastName: profileSchema.shape.lastName,
-  email: profileSchema.shape.email,
-  phone: z
-    .string()
-    .regex(/^\+[1-9]\d{6,14}$/, "Use an international phone number")
-    .nullable(),
-  gender: profileSchema.shape.gender,
-  tagline: profileSchema.shape.tagline,
-});
-export const profileResponseSchema = updateProfileRequestSchema.extend({
-  id: settingsId,
-  photoUrl: z.url().nullable(),
-  emailVerified: z.boolean(),
-  phoneVerified: z.boolean(),
-  updatedAt: settingsTimestamp,
-});
 export const updateAddressRequestSchema = addressSchema;
 export const addressResponseSchema = addressSchema.extend({ updatedAt: settingsTimestamp });
 export const updatePrivacyRequestSchema = z.strictObject({ photoVisibility: photoVisibilitySchema });
 export const privacyResponseSchema = updatePrivacyRequestSchema.extend({ updatedAt: settingsTimestamp });
-export const changePasswordRequestSchema = z
-  .strictObject({ oldPassword: passwordSchema.shape.oldPassword, newPassword: passwordSchema.shape.newPassword })
-  .refine((v) => v.oldPassword !== v.newPassword, {
-    path: ["newPassword"],
-    message: "Choose a different password from your current one",
-  });
 export const profilePhotoMetadataSchema = z.strictObject({
   fileName: z.string().trim().min(1).max(255),
   mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
@@ -176,8 +164,6 @@ export const deleteAccountResponseSchema = z.object({
   deleteAfter: settingsTimestamp,
 });
 export const cancelAccountDeletionRequestSchema = z.strictObject({ requestId: settingsId });
-export type Profile = z.infer<typeof profileResponseSchema>;
-export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
 export type TwoFactorMethod = z.infer<typeof twoFactorMethodSchema>;
 export type TwoFactorSelection = z.infer<typeof twoFactorSelectionSchema>;
 export type PasswordFormValues = z.input<typeof passwordSchema>;

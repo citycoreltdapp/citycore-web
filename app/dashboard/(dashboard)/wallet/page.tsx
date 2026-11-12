@@ -11,15 +11,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   type FundingFormValues,
   MINIMUM_CARD_FUNDING,
-  fundWithCardRequestSchema,
   fundingFormSchema,
   transactionListResponseSchema,
-  transactionSchema,
   walletSchema,
 } from "@/constant/schemas/finance";
-import { API_ROUTES } from "@/lib/api";
-import { isMockApi } from "@/lib/api-client";
-import { useApiMutation, useApiQuery } from "@/lib/query";
+import { useMockQuery } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AddCircleIcon,
@@ -108,7 +104,7 @@ function FundingDetailsCard({
   onMethodChange: (method: FundingMethodKey) => void;
   error?: string;
 }) {
-  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const { data: wallet } = useMockQuery({ key: "wallet", schema: walletSchema, mock: WALLET });
 
   return (
     <Card className="min-w-0 gap-0 rounded-2xl py-0 ring-foreground/8">
@@ -176,7 +172,7 @@ function FundingDetailsCard({
 }
 
 function FundingSummaryCard({ amount, methodKey }: { amount: number | undefined; methodKey: FundingMethodKey }) {
-  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const { data: wallet } = useMockQuery({ key: "wallet", schema: walletSchema, mock: WALLET });
   const account = wallet?.fundingAccount;
 
   return (
@@ -229,30 +225,14 @@ function FundingSection() {
   });
   const amount = useWatch({ control: form.control, name: "amount" });
   const methodKey = useWatch({ control: form.control, name: "method" });
-  const fund = useApiMutation({
-    path: API_ROUTES.fundWithCard,
-    bodySchema: fundWithCardRequestSchema,
-    schema: transactionSchema,
-    mock: null,
-    invalidates: [API_ROUTES.wallet, API_ROUTES.walletTransactions],
-  });
   return (
     <form
       noValidate
       className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]"
-      onSubmit={form.handleSubmit(({ amount }) => {
-        if (isMockApi) {
-          toast.info("Card payments aren't connected to a payment partner yet.");
-          return;
-        }
-        fund.mutate(
-          { amount, idempotencyKey: crypto.randomUUID() },
-          {
-            onSuccess: () => toast.success(`${formatNaira(amount)} is being added to your wallet.`),
-            onError: (error) => toast.error(error.message),
-          }
-        );
-      })}
+      onSubmit={form.handleSubmit(() =>
+        // ponytail: card funding is a Paystack redirect; it gets its own wallet action.
+        toast.info("Card payments aren't connected to a payment partner yet.")
+      )}
     >
       <Controller
         control={form.control}
@@ -273,7 +253,7 @@ function FundingSection() {
 }
 
 function WalletBalanceCard() {
-  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const { data: wallet } = useMockQuery({ key: "wallet", schema: walletSchema, mock: WALLET });
 
   return (
     <Card className="relative gap-6 overflow-hidden rounded-2xl bg-[#121212] px-5 py-5 text-white ring-white/10">
@@ -325,7 +305,7 @@ function AccountRow({
 }
 
 function WalletAccountsCard() {
-  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const { data: wallet } = useMockQuery({ key: "wallet", schema: walletSchema, mock: WALLET });
   const payout = wallet?.payoutAccount ?? null;
   return (
     <Card className="min-w-0 rounded-2xl ring-foreground/8">
@@ -360,8 +340,8 @@ function WalletAccountsCard() {
 const COLUMNS: ColumnDef<Transaction, unknown>[] = Object.values(TRANSACTION_COLUMNS);
 
 function RecentTransactionsCard() {
-  const { data: transactions } = useApiQuery({
-    path: API_ROUTES.walletTransactions,
+  const { data: transactions } = useMockQuery({
+    key: "walletTransactions",
     schema: transactionListResponseSchema,
     mock: TRANSACTIONS,
   });

@@ -18,8 +18,7 @@ import {
   withdrawalDetailsSchema,
   withdrawalSchema,
 } from "@/constant/withdrawal";
-import { API_ROUTES } from "@/lib/api";
-import { useApiMutation } from "@/lib/query";
+import { useMockMutation } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckmarkBadge01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -319,8 +318,7 @@ export default function Client$WithdrawalsPage() {
     }
   }, [isReviewed, form]);
 
-  const withdraw = useApiMutation({
-    path: API_ROUTES.withdraw,
+  const withdraw = useMockMutation({
     bodySchema: withdrawRequestSchema,
     schema: transactionSchema,
     // Mock reply until NEXT_PUBLIC_API_URL is set: the pending debit the API would return.
@@ -332,7 +330,7 @@ export default function Client$WithdrawalsPage() {
       amount: -body.amount,
       date: new Date().toISOString(),
     }),
-    invalidates: [API_ROUTES.wallet, API_ROUTES.walletTransactions],
+    invalidates: ["wallet", "walletTransactions"],
   });
 
   const confirmWithdrawal = ({ amount, pin, authenticatorCode }: WithdrawalFormData) =>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { useChangePassword, useCurrentUser, useSetPassword } from "@/actions/auth";
 import { AppModal } from "@/components/primitives/app-modal";
 import { PasswordField } from "@/components/primitives/password-field";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +19,7 @@ import Image from "next/image";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
-import { PASSWORD_RULES, passwordSchema } from "../_schemas";
+import { PASSWORD_RULES, newPasswordSchema, passwordSchema } from "../_schemas";
 import { useSettings } from "../_settings-provider";
 import { FormActions, SettingsNavigation, SettingsPanel } from "../_shared";
 
@@ -246,10 +247,28 @@ function SocialConnections() {
 export function Client$SecuritySettingsPage({ showNavigation = true }: { showNavigation?: boolean }) {
   const [expanded, setExpanded] = useState(true);
   const { twoFactorSelection, setTwoFactorSelection } = useSettings();
+  const { data: user } = useCurrentUser();
+  const changePassword = useChangePassword();
+  const setPassword = useSetPassword();
+  const hasPassword = user?.hasPassword ?? true;
   const form = useForm({
-    resolver: zodResolver(passwordSchema),
+    resolver: zodResolver(hasPassword ? passwordSchema : newPasswordSchema),
     defaultValues: { oldPassword: "", newPassword: "", confirmPassword: "" },
     mode: "onTouched",
+  });
+  const savePassword = form.handleSubmit(({ oldPassword, newPassword }) => {
+    const done = {
+      onSuccess: () => {
+        form.reset();
+        toast.success(hasPassword ? "Password changed. Other devices have been signed out." : "Password set");
+      },
+      onError: (error: Error & { code?: string }) =>
+        error.code === "INVALID_CURRENT_PASSWORD"
+          ? form.setError("oldPassword", { message: "Your current password is incorrect" }, { shouldFocus: true })
+          : toast.error(error.message),
+    };
+    if (hasPassword) changePassword.mutate({ currentPassword: oldPassword, newPassword }, done);
+    else setPassword.mutate({ newPassword }, done);
   });
   const newPassword = useWatch({ control: form.control, name: "newPassword" });
   const metRules = PASSWORD_RULES.filter((rule) => rule.test(newPassword)).length;
@@ -284,29 +303,25 @@ export function Client$SecuritySettingsPage({ showNavigation = true }: { showNav
         </Button>
       </div>
 
-      <SettingsPanel title="Change Password">
-        <form
-          className="flex flex-col gap-5"
-          onSubmit={form.handleSubmit(() => {
-            toast.info("Password changes aren't connected yet. Your password has not changed.");
-            form.reset();
-          })}
-        >
+      <SettingsPanel title={hasPassword ? "Change Password" : "Set a Password"}>
+        <form className="flex flex-col gap-5" noValidate onSubmit={savePassword}>
           <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="flex flex-col gap-4">
-              <Controller
-                control={form.control}
-                name="oldPassword"
-                render={({ field, fieldState }) => (
-                  <PasswordField
-                    {...field}
-                    id="settings-old-password"
-                    label="Old Password"
-                    autoComplete="current-password"
-                    error={fieldState.error?.message}
-                  />
-                )}
-              />
+              {hasPassword && (
+                <Controller
+                  control={form.control}
+                  name="oldPassword"
+                  render={({ field, fieldState }) => (
+                    <PasswordField
+                      {...field}
+                      id="settings-old-password"
+                      label="Current Password"
+                      autoComplete="current-password"
+                      error={fieldState.error?.message}
+                    />
+                  )}
+                />
+              )}
               <Controller
                 control={form.control}
                 name="newPassword"
@@ -316,7 +331,7 @@ export function Client$SecuritySettingsPage({ showNavigation = true }: { showNav
                     id="settings-new-password"
                     label="New Password"
                     autoComplete="new-password"
-                    maxLength={128}
+                    maxLength={72}
                     error={fieldState.error?.message}
                   />
                 )}
@@ -372,7 +387,7 @@ export function Client$SecuritySettingsPage({ showNavigation = true }: { showNav
               </ul>
             </div>
           </div>
-          <FormActions onCancel={() => form.reset()} />
+          <FormActions onCancel={() => form.reset()} isPending={changePassword.isPending || setPassword.isPending} />
         </form>
       </SettingsPanel>
 

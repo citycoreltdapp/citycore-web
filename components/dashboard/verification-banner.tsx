@@ -2,8 +2,10 @@
 
 import * as React from "react";
 
+import { useCurrentUser } from "@/actions/auth";
 import { ProgressRing } from "@/components/primitives/progress-ring";
 import { Button } from "@/components/ui/button";
+import { CORPORATE_ONBOARDING_STEPS } from "@/constant/corporate-onboarding";
 import { ONBOARDING_STEPS } from "@/constant/onboarding";
 import { useKycStatus } from "@/lib/verification-status";
 import { AlertCircleIcon, ArrowRight02Icon, Cancel01Icon, HourglassIcon, Tick02Icon } from "@hugeicons/core-free-icons";
@@ -12,12 +14,15 @@ import { cn } from "cn";
 import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 
-const STEPS = ["Account created", ...ONBOARDING_STEPS.map((step) => step.title)];
+const stepsFor = (corporate: boolean) => [
+  "Account created",
+  ...(corporate ? CORPORATE_ONBOARDING_STEPS : ONBOARDING_STEPS).map((step) => step.title),
+];
 
-function Steps() {
+function Steps({ steps }: { steps: string[] }) {
   return (
     <ol aria-label="Verification steps" className="hidden items-center gap-1.5 xl:flex">
-      {STEPS.map((step, index) => {
+      {steps.map((step, index) => {
         const done = index === 0;
         return (
           <li key={step} className="flex items-center gap-1.5">
@@ -48,6 +53,9 @@ function Steps() {
 /** Hangs under the header until the investor's KYC is approved. */
 export function VerificationBanner() {
   const status = useKycStatus();
+  const { data: user } = useCurrentUser();
+  const corporate = user?.accountType === "corporate";
+  const steps = stepsFor(corporate);
   const reduceMotion = useReducedMotion();
   const [dismissed, setDismissed] = React.useState(false);
 
@@ -79,9 +87,9 @@ export function VerificationBanner() {
           </span>
         ) : (
           <ProgressRing
-            value={100 / STEPS.length}
-            label={`1/${STEPS.length}`}
-            aria-label={`Step 1 of ${STEPS.length} done`}
+            value={100 / steps.length}
+            label={`1/${steps.length}`}
+            aria-label={`Step 1 of ${steps.length} done`}
             className="relative size-12 text-white [&>span]:text-xs"
             trackClassName="stroke-white/15"
             indicatorClassName="stroke-accent"
@@ -94,14 +102,18 @@ export function VerificationBanner() {
               ? "Your verification is in review"
               : needsAttention
                 ? "Your verification needs attention"
-                : "Verify your identity to start investing"}
+                : corporate
+                  ? "Verify your business to start investing"
+                  : "Verify your identity to start investing"}
           </p>
           <p className="hidden truncate text-sm text-white/60 sm:block">
             {inReview
               ? "We'll let you know once it's approved. Investing unlocks right after."
               : needsAttention
                 ? "Review your details and resubmit. Investing and withdrawals unlock once you're verified."
-                : "Have your NIN and a utility bill ready. You can explore meanwhile, but investing stays locked."}
+                : corporate
+                  ? "Have your CAC number and a utility bill ready. You can explore meanwhile, but investing stays locked."
+                  : "Have your NIN and a utility bill ready. You can explore meanwhile, but investing stays locked."}
           </p>
         </div>
 
@@ -117,7 +129,7 @@ export function VerificationBanner() {
           </Button>
         ) : (
           <>
-            {!needsAttention && <Steps />}
+            {!needsAttention && <Steps steps={steps} />}
             <Button
               nativeButton={false}
               render={<Link href="/dashboard/onboarding" />}

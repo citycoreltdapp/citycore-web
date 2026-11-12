@@ -2,6 +2,14 @@
 
 import { type FormEvent, useState } from "react";
 
+import {
+  useKycState,
+  useSaveKycDetails,
+  useSubmitKyc,
+  useUploadSelfie,
+  useUploadUtilityBill,
+  useVerifyNin,
+} from "@/actions/kyc";
 import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,7 +23,7 @@ import {
   UTILITY_BILL_UPLOAD,
   onboardingSchema,
 } from "@/constant/onboarding";
-import { setKycStatus } from "@/lib/verification-status";
+import type { KycState } from "@/constant/schemas/kyc";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Camera01Icon, CheckmarkCircle02Icon, LockIcon, Search01Icon, UserIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -23,6 +31,7 @@ import { cn } from "cn";
 import { useRouter } from "next/navigation";
 import { useDropzone } from "react-dropzone";
 import { Controller, FormProvider, useController, useForm, useFormContext, useWatch } from "react-hook-form";
+import { toast } from "sonner";
 
 import {
   DocumentUpload,
@@ -43,22 +52,23 @@ const SELFIE_TIPS = [
 ];
 const SUBMITTED = ["NIN details & address", "Selfie", "Utility bill"];
 
-const formatBirthDate = (iso: string) =>
-  new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(
-    new Date(`${iso}T00:00:00Z`)
-  );
+const formatBirthDate = (date: Date) =>
+  new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(date);
 
-async function lookupNin(nin: string): Promise<NinIdentity> {
-  await new Promise((resolve) => setTimeout(resolve, 650));
-  if (nin === "00000000000") throw new Error("No identity found. Check your NIN and try again.");
-  return { nin, firstName: "Ada", surname: "Okafor", dateOfBirth: "1995-06-15", phone: "+234 8000000000" };
-}
+const fullName = (identity: NinIdentity) =>
+  [identity.firstName, identity.middleName, identity.lastName].filter(Boolean).join(" ");
+
+const stepFor = (kyc: KycState) => {
+  if (kyc.nextStep === "submit") return LAST_STEP;
+  if (kyc.nextStep === "upload_documents") return kyc.documents.selfie ? LAST_STEP : 1;
+  return 0;
+};
 
 function NinRecordCard({ record }: { record: NinIdentity }) {
   const rows = [
-    ["Full name", `${record.firstName} ${record.surname}`],
-    ["Date of birth", formatBirthDate(record.dateOfBirth)],
-    ["Phone", record.phone],
+    ["Full name", fullName(record)],
+    ["Date of birth", record.dateOfBirth ? formatBirthDate(record.dateOfBirth) : "Not on record"],
+    ["Phone", record.phone ?? "Not on record"],
   ];
   return (
     <section
@@ -90,22 +100,18 @@ function IdentityStep() {
   const { control, setValue, setError, clearErrors, getFieldState, formState } = useFormContext<OnboardingFormData>();
   const nin = useWatch({ control, name: "nin" });
   const identity = useWatch({ control, name: "identity" });
-  const [isLooking, setIsLooking] = useState(false);
+  const verifyNin = useVerifyNin();
 
-  const findDetails = async () => {
+  const findDetails = () => {
     if (!NIN_PATTERN.test(nin.trim())) {
       setError("nin", { message: "NIN must be 11 digits" }, { shouldFocus: true });
       return;
     }
     clearErrors("nin");
-    setIsLooking(true);
-    try {
-      setValue("identity", await lookupNin(nin.trim()), { shouldValidate: true });
-    } catch (error) {
-      setError("nin", { message: error instanceof Error ? error.message : "We couldn't find that NIN." });
-    } finally {
-      setIsLooking(false);
-    }
+    verifyNin.mutate(nin.trim(), {
+      onSuccess: (kyc) => setValue("identity", kyc.identity, { shouldValidate: true }),
+      onError: (error) => setError("nin", { message: error.message }),
+    });
   };
 
   const changeNin = () => {
@@ -157,11 +163,11 @@ function IdentityStep() {
           <Button
             type="button"
             onClick={findDetails}
-            isLoading={isLooking}
+            isLoading={verifyNin.isPending}
             disabled={nin.length !== 11}
             className="h-12 rounded-xl text-base"
           >
-            {!isLooking && <HugeiconsIcon icon={Search01Icon} aria-hidden data-icon="inline-start" />}
+            {!verifyNin.isPending && <HugeiconsIcon icon={Search01Icon} aria-hidden data-icon="inline-start" />}
             Find my details
           </Button>
         )}
@@ -327,9 +333,7 @@ function AddressProofStep({ onEditAddress }: { onEditAddress: () => void }) {
         <SectionLabel>Before you submit</SectionLabel>
         <div className="flex items-start justify-between gap-4 rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
           <div className="min-w-0">
-            <p className="text-base font-semibold">
-              {identity?.firstName} {identity?.surname}
-            </p>
+            <p className="text-base font-semibold">{identity && fullName(identity)}</p>
             <p className="mt-1 text-sm">{[address, city, lga, state].filter(Boolean).join(", ")}</p>
             <p className="mt-3 text-xs text-muted-foreground">
               Your NIN details, selfie and utility bill will be sent for review together.
@@ -360,38 +364,87 @@ function AddressProofStep({ onEditAddress }: { onEditAddress: () => void }) {
 }
 
 export function IndividualOnboarding() {
+  const { data: kyc } = useKycState();
+  return kyc ? <IndividualFlow kyc={kyc} /> : null;
+}
+
+const formValuesFor = (kyc: KycState): OnboardingFormData => ({
+  ...ONBOARDING_DEFAULT_VALUES,
+  nin: kyc.nin.last4 ? `•••••••${kyc.nin.last4}` : "",
+  identity: kyc.identity,
+  address: kyc.details?.address.line1 ?? "",
+  city: kyc.details?.address.city ?? "",
+  stateOfResidence: kyc.details?.address.state ?? "",
+  lgaOfResidence: kyc.details?.address.lga ?? "",
+});
+
+function IndividualFlow({ kyc }: { kyc: KycState }) {
   const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => stepFor(kyc));
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const saveDetails = useSaveKycDetails();
+  const uploadSelfie = useUploadSelfie();
+  const uploadBill = useUploadUtilityBill();
+  const submitKyc = useSubmitKyc();
   const form = useForm({
     resolver: zodResolver(onboardingSchema),
-    defaultValues: ONBOARDING_DEFAULT_VALUES,
+    defaultValues: formValuesFor(kyc),
     mode: "onTouched",
   });
   const values = useWatch({ control: form.control });
-  const isStepValid = ONBOARDING_STEPS[currentStep].schema.safeParse(values).success;
+
+  const uploaded = {
+    selfie: !!values.selfie || !!kyc.documents.selfie,
+    utilityBill: !!values.utilityBill || !!kyc.documents.utilityBill,
+  };
+  const isStepValid =
+    ONBOARDING_STEPS[currentStep].schema.safeParse(values).success &&
+    (currentStep !== 1 || uploaded.selfie) &&
+    (currentStep !== LAST_STEP || uploaded.utilityBill);
+  const isSaving = saveDetails.isPending || uploadSelfie.isPending || uploadBill.isPending || submitKyc.isPending;
 
   const goToStep = (step: number) => {
     setCurrentStep(step);
     window.scrollTo({ top: 0 });
   };
 
-  const submit = form.handleSubmit((data) => {
-    console.log("KYC onboarding submitted", data);
-    form.reset();
-    setKycStatus("pending");
-    setIsSubmitted(true);
-    goToStep(0);
-  });
+  const save = async () => {
+    if (currentStep === 0) {
+      const { address, city, lgaOfResidence, stateOfResidence } = form.getValues();
+      await saveDetails.mutateAsync({
+        line1: address,
+        city,
+        lga: lgaOfResidence,
+        state: stateOfResidence,
+        country: "NG",
+      });
+      return;
+    }
+    if (currentStep === 1) {
+      const { selfie } = form.getValues();
+      if (selfie) await uploadSelfie.mutateAsync(selfie);
+      return;
+    }
+    const { utilityBill } = form.getValues();
+    if (utilityBill) await uploadBill.mutateAsync(utilityBill);
+    await submitKyc.mutateAsync();
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (currentStep === LAST_STEP) return submit(event);
     const canContinue = await form.trigger(ONBOARDING_STEPS[currentStep].fields, { shouldFocus: true });
-    if (canContinue) goToStep(currentStep + 1);
+    if (!canContinue) return;
+    try {
+      await save();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong. Try again.");
+      return;
+    }
+    if (currentStep < LAST_STEP) return goToStep(currentStep + 1);
+    setIsSubmitted(true);
   };
 
-  if (isSubmitted) {
+  if (isSubmitted || kyc.nextStep === "await_review" || kyc.nextStep === "complete") {
     return (
       <OnboardingSuccess
         submitted={SUBMITTED}
@@ -428,6 +481,14 @@ export function IndividualOnboarding() {
               key={currentStep}
               className="mx-auto flex w-full max-w-[600px] flex-1 animate-in flex-col gap-8 px-5 pt-4 pb-10 duration-300 fade-in slide-in-from-right-2 motion-reduce:animate-none"
             >
+              {kyc.rejectionReason && (
+                <p
+                  role="alert"
+                  className="rounded-2xl bg-destructive/8 p-4 text-sm text-destructive ring-1 ring-destructive/20"
+                >
+                  {kyc.rejectionReason}
+                </p>
+              )}
               {currentStep === 0 && <IdentityStep />}
               {currentStep === 1 && <SelfieStep />}
               {currentStep === LAST_STEP && <AddressProofStep onEditAddress={() => goToStep(0)} />}
@@ -436,7 +497,7 @@ export function IndividualOnboarding() {
               <div className="mx-auto w-full max-w-[600px] px-5 pb-6">
                 <Button
                   type="submit"
-                  isLoading={form.formState.isSubmitting}
+                  isLoading={isSaving}
                   disabled={!isStepValid}
                   className="h-13 w-full rounded-xl text-base"
                 >

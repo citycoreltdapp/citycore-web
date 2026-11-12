@@ -1,6 +1,8 @@
 "use client";
 
+import { authFlow, useForgotPassword } from "@/actions/auth";
 import { TextField } from "@/components/primitives/text-field";
+import { toast } from "@/components/ui/toast";
 import { type ForgotPasswordFormData, forgotPasswordSchema } from "@/constant/auth";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail01Icon, SquareLock02Icon } from "@hugeicons/core-free-icons";
@@ -12,6 +14,7 @@ import { AuthForm, AuthQuoteBanner, AuthShell } from "../_shared";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const forgotPassword = useForgotPassword();
 
   const form = useForm<ForgotPasswordFormData>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -26,10 +29,22 @@ export default function ForgotPasswordPage() {
         icon={<HugeiconsIcon icon={SquareLock02Icon} />}
         title="Forgot Password?"
         subtitle="Enter your email to reset your password"
-        // ponytail: no backend yet, call the forgot-password API here.
-        onSubmit={form.handleSubmit(() => router.push("/dashboard/forgot-password/verify"))}
+        onSubmit={form.handleSubmit(({ email }) =>
+          // The server answers the same whether or not the account exists, so this always moves on.
+          forgotPassword.mutate(
+            { email },
+            {
+              onSuccess: () => {
+                authFlow.set({ email });
+                router.push("/dashboard/forgot-password/verify");
+              },
+              onError: (error) =>
+                toast.add({ type: "error", title: "Couldn't send a code", description: error.message }),
+            }
+          )
+        )}
         submitLabel="Submit"
-        isPending={form.formState.isSubmitting}
+        isPending={forgotPassword.isPending}
         isSubmitDisabled={!form.formState.isValid}
       >
         <Controller

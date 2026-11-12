@@ -9,8 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { walletSchema } from "@/constant/schemas/finance";
 import { type Property, propertyListResponseSchema } from "@/constant/schemas/marketplace";
-import { API_ROUTES } from "@/lib/api";
-import { useApiQuery } from "@/lib/query";
+import { useMockQuery } from "@/lib/query";
 import { REFERRAL_PLAN } from "@/lib/referrals";
 import { ArrowUpRight01Icon, Location01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -284,12 +283,12 @@ export function PropertyCard({
 }
 
 export default function MarketplacePage() {
-  const { data: catalogue } = useApiQuery({
-    path: API_ROUTES.properties,
+  const { data: catalogue } = useMockQuery({
+    key: "properties",
     schema: propertyListResponseSchema,
     mock: PROPERTIES,
   });
-  const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
+  const { data: wallet } = useMockQuery({ key: "wallet", schema: walletSchema, mock: WALLET });
   const [search, setSearch] = useState("");
   const [city, setCity] = useState("all");
   const [type, setType] = useState("all");

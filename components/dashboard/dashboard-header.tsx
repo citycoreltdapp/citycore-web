@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { initials, useCurrentUser, useLogout } from "@/actions/auth";
 import { AppModal } from "@/components/primitives/app-modal";
 import { SearchField } from "@/components/primitives/search-field";
 import { ThemeToggle } from "@/components/primitives/theme-toggle";
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
 import type { InboxMessage } from "@/constant/notifications";
-import { signOut } from "@/lib/api-client";
 import { ArrowLeft01Icon, ArrowRight01Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
@@ -59,6 +59,8 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ notifications, accountMenuItems }: DashboardHeaderProps) {
   const router = useRouter();
+  const logout = useLogout();
+  const { data: user } = useCurrentUser();
   const [search, setSearch] = React.useState("");
 
   return (
@@ -92,15 +94,14 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
             className="cursor-pointer rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <Avatar className="size-10">
-              <AvatarImage src="/assets/images/investors/investor-avatar-02.jpg" alt="" />
-              <AvatarFallback>P</AvatarFallback>
+              {user?.avatar && <AvatarImage src={user.avatar} alt="" />}
+              <AvatarFallback>{initials(user?.name)}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             {accountMenuItems ?? (
               <>
                 <DropdownMenuItem render={<Link href="/dashboard/settings" />}>Settings & Security</DropdownMenuItem>
-                {/* ponytail: no sessions yet, so this only goes to sign-in. Sign out through the API here. */}
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() =>
@@ -108,7 +109,7 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
                       title: "Log out?",
                       description: "You'll need to sign in again to get back in.",
                       confirmLabel: "Log out",
-                      onConfirm: () => signOut().then(() => router.push("/dashboard/signin")),
+                      onConfirm: () => logout.mutate(undefined, { onSettled: () => router.push("/dashboard/signin") }),
                     })
                   }
                 >

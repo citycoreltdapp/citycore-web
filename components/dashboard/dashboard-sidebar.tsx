@@ -16,7 +16,7 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { signOut } from "@/lib/api-client";
+import { useLogout } from "@/actions/auth";
 import { type NavGroup, dashboardNavGroups } from "@/lib/dashboard-nav";
 import { ArrowDown01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -199,6 +199,7 @@ export function DashboardSidebar({
   logOutButton,
 }: DashboardSidebarProps) {
   const router = useRouter();
+  const signOut = useLogout();
   const [isOpen, setIsOpen] = useSavedSidebarState();
   const logout = logOutButton ?? (
     <button
@@ -208,7 +209,7 @@ export function DashboardSidebar({
           title: "Log out?",
           description: "You'll need to sign in again to get back in.",
           confirmLabel: "Log out",
-          onConfirm: () => signOut().then(() => router.push("/dashboard/signin")),
+          onConfirm: () => signOut.mutate(undefined, { onSettled: () => router.push("/dashboard/signin") }),
         })
       }
     />

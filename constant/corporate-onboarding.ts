@@ -1,8 +1,6 @@
 import { EMPTY_PHONE_NUMBER, isPhoneNumberValid } from "@/lib/phone-number";
 import { z } from "zod";
 
-import { NIN_PATTERN, requiredFile } from "./onboarding";
-
 /** The digits after the RC, BN, IT, LP or LLP prefix on a CAC certificate. */
 export const REGISTRATION_NUMBER_PATTERN = /^\d{4,8}$/;
 /** FIRS TINs read 12345678-0001; newer JTB TINs are 10 digits. */
@@ -53,20 +51,14 @@ export const COMPANY_TYPES: {
 
 export const companyTypePrefix = (type: CompanyType) => COMPANY_TYPES.find((t) => t.value === type)?.prefix ?? "RC";
 
-export const personRoleSchema = z.enum(["director", "shareholder", "both"]);
-export type PersonRole = z.infer<typeof personRoleSchema>;
-
-/** What a CAC lookup returns. Shown read-only, so it's only ever set from a lookup. */
 export const cacRecordSchema = z.object({
   registrationNumber: z.string(),
   companyType: companyTypeSchema,
   companyName: z.string().min(1),
-  registeredOn: z.iso.date(),
-  registeredAddress: z.string().min(1),
-  /** Looked up from the registration number. Some companies have none linked, so they type it instead. */
+  registeredOn: z.date().nullable(),
+  registeredAddress: z.string().nullable(),
   tin: z.string().nullable(),
-  /** Who CAC lists against the company. The signatory picks themselves from this list. */
-  people: z.array(z.object({ fullName: z.string(), role: personRoleSchema })),
+  people: z.array(z.object({ fullName: z.string(), role: z.string() })),
 });
 export type CacRecord = z.infer<typeof cacRecordSchema>;
 
@@ -97,6 +89,7 @@ const requireTin = (data: { company: CacRecord | null; tin: string }, ctx: Ctx) 
 
 const companyFields = {
   companyType: companyTypeSchema,
+  companyLogo: z.instanceof(File).nullable(),
   registrationNumber: z
     .string()
     .trim()
@@ -124,7 +117,7 @@ export const companySchema = z.object(companyFields).superRefine((data, ctx) => 
 
 // The CAC lookup already proves the company exists, so the only paper asked for is proof of address.
 const addressProofFields = {
-  addressProof: requiredFile("Proof of address"),
+  addressProof: z.instanceof(File).nullable(),
 };
 
 export const addressProofSchema = z.object(addressProofFields);
@@ -134,32 +127,46 @@ export type IdType = (typeof ID_TYPES)[number];
 
 const authorisationFields = {
   /** The person completing this, picked by name from the CAC record. */
-  signatoryName: z.string().min(1, "Choose your name from the list"),
+  signatoryName: z.string().trim().min(2, "Enter your full name"),
+  signatoryUnlisted: z.boolean(),
+  authorisationLetter: z.instanceof(File).nullable(),
   signatoryIdType: z.enum(ID_TYPES),
-  signatoryIdNumber: z.string().trim().regex(NIN_PATTERN, "Must be 11 digits"),
+  signatoryIdNumber: z.string(),
   /** The name on their NIN or BVN record, set only once it matches the CAC name. */
   signatoryVerifiedName: z
     .string()
     .nullable()
     .refine((v) => v !== null, "Verify your ID to continue"),
-  bankName: z.string().min(1, "Choose the company's bank"),
+  bankName: z.string(),
   bankCode: z.string().optional(),
-  accountNumber: z.string().regex(ACCOUNT_NUMBER_PATTERN, "Account number must be 10 digits"),
-  /** The name the bank returns, set only once it matches the company. */
-  accountName: z
+  accountNumber: z
     .string()
-    .nullable()
-    .refine((v) => v !== null, "Confirm the account name to continue"),
+    .refine((v) => v === "" || ACCOUNT_NUMBER_PATTERN.test(v), "Account number must be 10 digits"),
+  accountName: z.string().nullable(),
   confirmed: z.boolean().refine(Boolean, "Confirm the details before submitting"),
 };
 
-export const authorisationSchema = z.object(authorisationFields);
+const requireCheckedPayout = (
+  data: { bankName: string; accountNumber: string; accountName: string | null },
+  ctx: Ctx
+) => {
+  if ((data.bankName || data.accountNumber) && !data.accountName) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["accountNumber"],
+      message: "Confirm this account, or clear it and add it later",
+    });
+  }
+};
+
+export const authorisationSchema = z.object(authorisationFields).superRefine(requireCheckedPayout);
 
 export const corporateOnboardingSchema = z
   .object({ ...companyFields, ...addressProofFields, ...authorisationFields })
   .superRefine((data, ctx) => {
     requireOperatingAddress(data, ctx);
     requireTin(data, ctx);
+    requireCheckedPayout(data, ctx);
   });
 
 /** What the form holds while it's being filled in, so a file can still be empty. */
@@ -167,6 +174,7 @@ export type CorporateOnboardingFormData = z.input<typeof corporateOnboardingSche
 
 export const CORPORATE_ONBOARDING_DEFAULT_VALUES: CorporateOnboardingFormData = {
   companyType: "limited",
+  companyLogo: null,
   registrationNumber: "",
   company: null,
   tin: "",
@@ -179,6 +187,8 @@ export const CORPORATE_ONBOARDING_DEFAULT_VALUES: CorporateOnboardingFormData = 
   operatingLga: "",
   addressProof: null,
   signatoryName: "",
+  signatoryUnlisted: false,
+  authorisationLetter: null,
   signatoryIdType: "nin",
   signatoryIdNumber: "",
   signatoryVerifiedName: null,
@@ -214,4 +224,10 @@ export const CORPORATE_DOCUMENT_UPLOAD = {
   accept: { "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"], "application/pdf": [".pdf"] },
   maxSize: 10 * 1024 * 1024,
   rejectedMessage: "Upload a JPEG, PNG or PDF up to 10 MB.",
+};
+
+export const COMPANY_LOGO_UPLOAD = {
+  accept: { "image/jpeg": [".jpg", ".jpeg"], "image/png": [".png"], "image/webp": [".webp"] },
+  maxSize: 5 * 1024 * 1024,
+  rejectedMessage: "Use a JPEG, PNG or WebP image up to 5 MB.",
 };

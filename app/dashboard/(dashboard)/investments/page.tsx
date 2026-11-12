@@ -11,8 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { homeDashboardSchema } from "@/constant/schemas/dashboard";
 import { holdingListResponseSchema } from "@/constant/schemas/portfolio";
-import { API_ROUTES } from "@/lib/api";
-import { useApiQuery } from "@/lib/query";
+import { useMockQuery } from "@/lib/query";
 import { ArrowUpRight01Icon, Location01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -142,13 +141,13 @@ const COLUMNS: ColumnDef<Holding>[] = [
 ];
 
 export default function InvestmentsPage() {
-  const { data: holdings } = useApiQuery({
-    path: API_ROUTES.holdings,
+  const { data: holdings } = useMockQuery({
+    key: "holdings",
     schema: holdingListResponseSchema,
     mock: HOLDINGS,
   });
-  const { data: dashboard } = useApiQuery({
-    path: API_ROUTES.dashboard,
+  const { data: dashboard } = useMockQuery({
+    key: "dashboard",
     schema: homeDashboardSchema,
     mock: HOME_DASHBOARD,
   });

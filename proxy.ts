@@ -1,37 +1,35 @@
-import { NextRequest, NextResponse } from "next/server";
+import { SESSION_COOKIE } from "@/constant/auth";
+import { type NextRequest, NextResponse } from "next/server";
 
-export default async function proxy(req: NextRequest): Promise<NextResponse> {
-  const host = req.headers.get("host");
+const SIGN_IN = "/dashboard/signin";
+const PUBLIC_AUTH = [
+  "/dashboard/signin",
+  "/dashboard/signup",
+  "/dashboard/forgot-password",
+  "/dashboard/reset-password",
+];
+const SIGNED_IN_REDIRECT = ["/dashboard/signin", "/dashboard/signup"];
 
-  if (!host) return new NextResponse("Missing Host header", { status: 400 });
+const startsWithAny = (path: string, prefixes: string[]) =>
+  prefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
 
-  //const url = req.nextUrl.clone();
+export default function proxy(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+  if (!process.env.NEXT_PUBLIC_API_URL || !startsWithAny(pathname, ["/dashboard"])) return NextResponse.next();
 
-  // const prefix = tenantPrefixForHost(host, {
-  //   admin: process.env.NEXT_PUBLIC_ADMIN_URL,
-  //   dashboard: process.env.NEXT_PUBLIC_DASHBOARD_URL,
-  //   app: process.env.NEXT_PUBLIC_APP_URL,
-  // });
+  const signedIn = req.cookies.get(SESSION_COOKIE)?.value === "1";
 
-  // const requestHeaders = new Headers(req.headers);
-  // requestHeaders.set("x-url", `${req.nextUrl.pathname}${req.nextUrl.search}`);
+  if (!signedIn && !startsWithAny(pathname, PUBLIC_AUTH)) {
+    const url = new URL(SIGN_IN, req.url);
+    url.searchParams.set("next", `${pathname}${search}`);
+    return NextResponse.redirect(url);
+  }
 
-  // url.pathname = `${prefix}${url.pathname}`;
-
-  // return NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+  if (signedIn && SIGNED_IN_REDIRECT.includes(pathname)) return NextResponse.redirect(new URL("/dashboard", req.url));
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all paths except for:
-     * 1. /_next (Next.js internals)
-     * 2. /_static (inside /public)
-     * 3. /assets (images inside /public)
-     * 4. all root files inside /public (e.g. /favicon.ico)
-     */
-    "/((?!_next/|_static/|assets/|images/|_vercel|[\\w-]+\\.\\w+).*)",
-  ],
+  matcher: ["/((?!_next/|_static/|assets/|images/|_vercel|api/|[\\w-]+\\.\\w+).*)"],
 };

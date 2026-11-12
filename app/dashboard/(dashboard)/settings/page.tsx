@@ -1,133 +1,88 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 
+import { useCurrentUser, useRemoveAvatar, useUpdateProfile, useUploadAvatar } from "@/actions/auth";
+import { useKycState } from "@/actions/kyc";
 import { AppModal } from "@/components/primitives/app-modal";
 import { FileUpload } from "@/components/primitives/file-upload";
 import { PhoneNumberField } from "@/components/primitives/phone-number-field";
 import { SelectField } from "@/components/primitives/select-field";
-import { TextAreaField, TextField } from "@/components/primitives/text-field";
+import { TextField } from "@/components/primitives/text-field";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from "@/components/ui/switch";
-import {
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  NOTIFICATION_TOPIC_LABELS,
-  type NotificationTopic,
-} from "@/constant/notifications";
+import { COMPANY_TYPES } from "@/constant/corporate-onboarding";
+import type { AuthUser } from "@/constant/schemas/auth";
 import { profilePhotoFileSchema } from "@/constant/schemas/settings";
+import { phoneNumberFromE164, phoneNumberToE164 } from "@/lib/phone-number";
+import { useKycStatus } from "@/lib/verification-status";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  LeftToRightListBulletIcon,
-  LeftToRightListNumberIcon,
-  Link01Icon,
-  QuoteDownIcon,
-  TextBoldIcon,
-  TextItalicIcon,
-} from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "@hugeicons/react";
+import { cn } from "cn";
 import { countries } from "countries-list";
 import Link from "next/link";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
+import { CompanyProfileCard } from "../_corporate-home";
 import { type AddressValues, type ProfileValues, addressSchema, profileSchema } from "./_schemas";
 import { useSettings } from "./_settings-provider";
 import { FormActions, SettingsNavigation, SettingsPanel } from "./_shared";
 
-const TOOLS = [
-  { label: "Bold", icon: TextBoldIcon, before: "**", after: "**" },
-  { label: "Italic", icon: TextItalicIcon, before: "_", after: "_" },
-  { label: "Bullet list", icon: LeftToRightListBulletIcon, before: "\n- ", after: "" },
-  { label: "Numbered list", icon: LeftToRightListNumberIcon, before: "\n1. ", after: "" },
-  { label: "Quote", icon: QuoteDownIcon, before: "\n> ", after: "" },
-  { label: "Link", icon: Link01Icon, before: "[", after: "](https://)" },
-];
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "prefer_not_to_say", label: "Prefer not to say" },
+] as const;
 
-function TaglineField({
-  value,
-  onChange,
-  onBlur,
-  error,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onBlur: () => void;
-  error?: string;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-  const insert = (before: string, after = "") => {
-    const input = ref.current;
-    if (!input) return;
-    const start = input.selectionStart;
-    const end = input.selectionEnd;
-    const next = value.slice(0, start) + before + value.slice(start, end) + after + value.slice(end);
-    if (next.length > 500) return;
-    onChange(next);
-    requestAnimationFrame(() => {
-      input.focus();
-      input.setSelectionRange(start + before.length, end + before.length);
-    });
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+
+const profileValues = (user: AuthUser): ProfileValues => {
+  const [firstName = "", ...rest] = user.name.trim().split(/\s+/);
+  return {
+    firstName,
+    lastName: rest.join(" "),
+    phone: phoneNumberFromE164(user.phone),
+    gender: user.gender === "other" ? null : (user.gender ?? null),
   };
+};
 
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor="profile-tagline">Tagline</Label>
-      <div className="overflow-hidden rounded-lg border border-input transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50">
-        <div
-          role="toolbar"
-          aria-label="Tagline formatting"
-          className="flex flex-wrap gap-0.5 border-b border-border p-1"
-        >
-          {TOOLS.map(({ label, icon, before, after }) => (
-            <Button
-              key={label}
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={label}
-              onClick={() => insert(before, after)}
-            >
-              <HugeiconsIcon icon={icon} aria-hidden />
-            </Button>
-          ))}
-        </div>
-        <TextAreaField
-          ref={ref}
-          id="profile-tagline"
-          value={value}
-          onChange={onChange}
-          onBlur={onBlur}
-          maxLength={500}
-          placeholder="Write a little about yourself"
-          error={error}
-          errorClassName="px-3 pb-2"
-          textareaClassName="min-h-28 rounded-none border-0 bg-transparent focus-visible:ring-0 dark:bg-transparent"
-        />
-      </div>
-      <p className="flex justify-between gap-3 text-xs text-muted-foreground tabular-nums">
-        <span>Formatting uses Markdown</span>
-        <span>{value.length}/500</span>
-      </p>
-    </div>
-  );
-}
+const addressValues = (user: AuthUser): AddressValues => ({
+  country: user.address?.country ?? "NG",
+  address1: user.address?.line1 ?? "",
+  address2: user.address?.line2 ?? "",
+  city: user.address?.city ?? "",
+  state: user.address?.state ?? "",
+  zip: user.address?.postalCode ?? "",
+});
 
-export function ProfileCard() {
-  const settings = useSettings();
-  const [photo, setPhoto] = useState(settings.photo);
-  const form = useForm<ProfileValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: settings.profile,
-    mode: "onTouched",
-  });
+const showError = (error: Error) => toast.error(error.message);
+
+function ProfilePhoto({
+  user,
+  label = "Profile photo",
+  className,
+}: {
+  user: AuthUser;
+  label?: string;
+  className?: string;
+}) {
+  const uploadAvatar = useUploadAvatar();
+  const removeAvatar = useRemoveAvatar();
+  const isBusy = uploadAvatar.isPending || removeAvatar.isPending;
+
   const upload = () =>
     AppModal.open({
-      title: "Upload profile photo",
-      description: "Preview a JPG, PNG or WebP up to 5 MB. The image stays in this browser session.",
+      title: `Upload ${label.toLowerCase()}`,
+      description: "A JPG, PNG or WebP up to 5 MB.",
       content: (
         <FileUpload
           id="profile-photo-upload"
@@ -137,59 +92,96 @@ export function ProfileCard() {
           dropzoneMaxFiles={1}
           onFilesAdded={(files) => {
             const parsed = profilePhotoFileSchema.safeParse(files[0]);
-            if (parsed.success) {
-              setPhoto(settings.createPhoto(parsed.data));
-              AppModal.close();
-            }
+            if (!parsed.success) return;
+            AppModal.close();
+            uploadAvatar.mutate(parsed.data, {
+              onSuccess: () => toast.success(`${label} updated`),
+              onError: showError,
+            });
           }}
           onFilesRejected={() => toast.error("Choose one JPG, PNG or WebP image smaller than 5 MB.")}
         />
       ),
     });
-  const cancel = () => {
-    form.reset(settings.profile);
-    setPhoto(settings.photo);
-  };
+
   return (
-    <SettingsPanel title="Account Settings">
-      <form
-        className="space-y-5"
-        onSubmit={form.handleSubmit((values) => {
-          settings.setProfile(values);
-          settings.setPhoto(photo);
-          form.reset(values);
-          toast.success("Profile saved for this settings session.");
-        })}
-      >
-        <div className="flex flex-wrap items-center gap-4 border-b border-border pb-5">
-          <Avatar className="size-16">
-            <AvatarImage
-              src={photo?.url ?? "/assets/images/settings/profile-placeholder.png"}
-              alt="Profile photo preview"
-            />
-            <AvatarFallback>Photo</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1 basis-40">
-            <p className="text-sm font-semibold">Profile photo</p>
-            <p className="truncate text-xs text-muted-foreground">
-              {photo ? `${photo.name} • preview only until saved` : "JPG, PNG or WebP up to 5 MB"}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" className="h-9 rounded-full px-4" onClick={upload}>
-              Upload image
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-9 rounded-full px-3"
-              disabled={!photo}
-              onClick={() => setPhoto(null)}
-            >
-              Remove
-            </Button>
-          </div>
-        </div>
+    <div className={cn("flex flex-wrap items-center gap-4 border-b border-border pb-5", className)}>
+      <Avatar className="size-16">
+        {user.avatar && <AvatarImage src={user.avatar} alt={label} />}
+        <AvatarFallback>{initials(user.name)}</AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1 basis-40">
+        <p className="text-sm font-semibold">{label}</p>
+        <p className="truncate text-xs text-muted-foreground">JPG, PNG or WebP up to 5 MB</p>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          className="h-9 rounded-full px-4"
+          onClick={upload}
+          isLoading={uploadAvatar.isPending}
+          disabled={isBusy}
+        >
+          {user.avatar ? "Change image" : "Upload image"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          className="h-9 rounded-full px-3"
+          disabled={!user.avatar || isBusy}
+          onClick={() =>
+            removeAvatar.mutate(undefined, {
+              onSuccess: () => toast.success(`${label} removed`),
+              onError: showError,
+            })
+          }
+        >
+          Remove
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ProfileForm({ user, corporate = false }: { user: AuthUser; corporate?: boolean }) {
+  const updateProfile = useUpdateProfile();
+  const { data: kyc } = useKycState();
+  const nameLocked = user.kycCompleted;
+  const form = useForm<ProfileValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: profileValues(user),
+    mode: "onTouched",
+  });
+
+  const save = form.handleSubmit(({ firstName, lastName, phone, gender }) =>
+    updateProfile.mutate(
+      {
+        ...(!nameLocked && { name: `${firstName} ${lastName}` }),
+        phone: phone.number.trim() ? phoneNumberToE164(phone) : null,
+        ...(!corporate && { gender }),
+      },
+      {
+        onSuccess: (saved) => {
+          form.reset(profileValues(saved));
+          toast.success("Profile saved");
+        },
+        onError: showError,
+      }
+    )
+  );
+
+  return (
+    <SettingsPanel
+      title={corporate ? "Your details" : "Account Settings"}
+      description={
+        corporate
+          ? `You sign in and act for ${kyc?.business?.companyName ?? "your company"}. Your name follows your verified ID.`
+          : undefined
+      }
+    >
+      <form className="space-y-5" noValidate onSubmit={save}>
+        {!corporate && <ProfilePhoto user={user} />}
         <div className="grid gap-4 sm:grid-cols-2">
           {(
             [
@@ -207,25 +199,21 @@ export function ProfileCard() {
                   id={`profile-${item.name}`}
                   label={item.label}
                   autoComplete={item.autoComplete}
+                  readOnly={nameLocked}
+                  helpText={nameLocked ? "Matches your verified ID" : undefined}
                   error={fieldState.error?.message}
                 />
               )}
             />
           ))}
-          <Controller
-            control={form.control}
-            name="email"
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                id="profile-email"
-                type="email"
-                label="Email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                error={fieldState.error?.message}
-              />
-            )}
+          <TextField
+            id="profile-email"
+            type="email"
+            label="Email"
+            value={user.email}
+            onChange={() => undefined}
+            readOnly
+            helpText={user.emailVerified ? "Verified" : "Not verified yet"}
           />
           <Controller
             control={form.control}
@@ -241,90 +229,82 @@ export function ProfileCard() {
             )}
           />
         </div>
-        <Controller
-          control={form.control}
-          name="gender"
-          render={({ field, fieldState }) => (
-            <fieldset className="space-y-2">
-              <legend className="mb-2 text-sm font-medium">Gender</legend>
-              <RadioGroup
-                value={field.value}
-                onValueChange={field.onChange}
-                onBlur={field.onBlur}
-                aria-label="Gender"
-                className="flex flex-wrap gap-2"
-              >
-                {["Male", "Female", "Prefer not to say"].map((value) => (
-                  <label
-                    key={value}
-                    className="flex cursor-pointer items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm transition-colors hover:bg-muted/50 has-data-checked:border-foreground/25 has-data-checked:bg-muted/60"
-                  >
-                    <RadioGroupItem value={value} />
-                    {value}
-                  </label>
-                ))}
-              </RadioGroup>
-              {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
-            </fieldset>
-          )}
-        />
-        <Controller
-          control={form.control}
-          name="tagline"
-          render={({ field, fieldState }) => <TaglineField {...field} error={fieldState.error?.message} />}
-        />
-        {(
-          [
-            { name: "privacy", label: "I acknowledge the privacy policy", href: "/dashboard/privacy" },
-            { name: "terms", label: "I acknowledge the terms & conditions", href: "/dashboard/terms" },
-          ] as const
-        ).map((item) => (
+        {!corporate && (
           <Controller
-            key={item.name}
             control={form.control}
-            name={item.name}
+            name="gender"
             render={({ field, fieldState }) => (
-              <div>
-                <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl border border-border p-3.5 transition-colors has-aria-invalid:border-destructive/50 has-data-checked:border-foreground/25 has-data-checked:bg-muted/60">
-                  <label className="flex cursor-pointer items-start gap-3 text-sm/5">
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      onBlur={field.onBlur}
-                      ref={field.ref}
-                      aria-invalid={!!fieldState.error}
-                      className="mt-0.5"
-                    />
-                    {item.label}
-                  </label>
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="ml-7 h-auto p-0 text-xs sm:ml-0"
-                    onClick={() =>
-                      AppModal.open({
-                        title: item.name === "privacy" ? "Privacy policy" : "Terms & conditions",
-                        description: "Document not available in this preview",
-                        content: (
-                          <p className="text-sm leading-relaxed">
-                            The current document has not been connected yet. These checkboxes demonstrate the profile
-                            form; they do not record legal acceptance.
-                          </p>
-                        ),
-                        primaryButton: { children: "Close" },
-                      })
-                    }
-                  >
-                    Read {item.name === "privacy" ? "privacy policy" : "terms"}
-                  </Button>
-                </div>
-                {fieldState.error && <p className="mt-1.5 text-xs text-destructive">{fieldState.error.message}</p>}
-              </div>
+              <fieldset className="space-y-2">
+                <legend className="mb-2 text-sm font-medium">Gender</legend>
+                <RadioGroup
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  onBlur={field.onBlur}
+                  aria-label="Gender"
+                  className="flex flex-wrap gap-2"
+                >
+                  {GENDER_OPTIONS.map(({ value, label }) => (
+                    <label
+                      key={value}
+                      className="flex cursor-pointer items-center gap-2 rounded-full border border-border px-3.5 py-2 text-sm transition-colors hover:bg-muted/50 has-data-checked:border-foreground/25 has-data-checked:bg-muted/60"
+                    >
+                      <RadioGroupItem value={value} />
+                      {label}
+                    </label>
+                  ))}
+                </RadioGroup>
+                {fieldState.error && <p className="text-xs text-destructive">{fieldState.error.message}</p>}
+              </fieldset>
             )}
           />
-        ))}
-        <FormActions onCancel={cancel} />
+        )}
+        <FormActions
+          onCancel={() => form.reset(profileValues(user))}
+          disabled={!form.formState.isDirty}
+          isPending={updateProfile.isPending}
+        />
       </form>
+    </SettingsPanel>
+  );
+}
+
+export function ProfileCard({ corporate = false }: { corporate?: boolean }) {
+  const { data: user } = useCurrentUser();
+  return user ? <ProfileForm key={user.id} user={user} corporate={corporate} /> : null;
+}
+
+const STATUS_LABELS = {
+  verified: "Verified business",
+  pending: "Verification in review",
+  actionRequired: "Needs attention",
+  notStarted: "Not verified",
+} as const;
+
+function CompanyCard() {
+  const { data: user } = useCurrentUser();
+  const { data: kyc } = useKycState();
+  const status = useKycStatus();
+  const business = kyc?.business;
+  const type = COMPANY_TYPES.find((option) => option.value === business?.companyType);
+  if (!user) return null;
+
+  return (
+    <SettingsPanel title="Company" description="Name and registration come from your CAC record.">
+      <div className="space-y-4">
+        <div>
+          <p className="text-xl font-semibold tracking-tight">{business?.companyName ?? "No business on file yet"}</p>
+          <div className="mt-2 flex flex-wrap gap-2 text-xs">
+            {business && type && (
+              <span className="rounded-full bg-muted px-2.5 py-1 font-medium tabular-nums">
+                {type.prefix} {business.registrationNumber}
+              </span>
+            )}
+            {type && <span className="rounded-full bg-muted px-2.5 py-1">{type.label}</span>}
+            {status && <span className="rounded-full bg-muted px-2.5 py-1">{STATUS_LABELS[status]}</span>}
+          </div>
+        </div>
+        <ProfilePhoto user={user} label="Company logo" className="border-none pb-0" />
+      </div>
     </SettingsPanel>
   );
 }
@@ -332,23 +312,40 @@ export function ProfileCard() {
 const COUNTRY_OPTIONS = Object.entries(countries)
   .map(([value, country]) => ({ value, label: country.name }))
   .sort((a, b) => a.label.localeCompare(b.label));
-export function AddressCard() {
-  const settings = useSettings();
+function AddressForm({ user }: { user: AuthUser }) {
+  const updateProfile = useUpdateProfile();
   const form = useForm<AddressValues>({
     resolver: zodResolver(addressSchema),
-    defaultValues: settings.address,
+    defaultValues: addressValues(user),
     mode: "onTouched",
   });
+
+  const save = form.handleSubmit((values) =>
+    updateProfile.mutate(
+      {
+        address: {
+          line1: values.address1,
+          line2: values.address2 || null,
+          city: values.city,
+          lga: values.country === user.address?.country ? (user.address?.lga ?? null) : null,
+          state: values.state,
+          country: values.country,
+          postalCode: values.zip || null,
+        },
+      },
+      {
+        onSuccess: (saved) => {
+          form.reset(addressValues(saved));
+          toast.success("Address saved");
+        },
+        onError: showError,
+      }
+    )
+  );
+
   return (
     <SettingsPanel title="Address">
-      <form
-        className="space-y-4"
-        onSubmit={form.handleSubmit((values) => {
-          settings.setAddress(values);
-          form.reset(values);
-          toast.success("Address saved for this settings session.");
-        })}
-      >
+      <form className="space-y-4" noValidate onSubmit={save}>
         <Controller
           control={form.control}
           name="country"
@@ -356,56 +353,58 @@ export function AddressCard() {
             <SelectField
               {...field}
               id="address-country"
-              label="Location"
+              label="Country"
               placeholder="Select country"
               items={COUNTRY_OPTIONS}
               error={fieldState.error?.message}
             />
           )}
         />
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
-          {(
-            [
-              { name: "address1", label: "Address 1", autoComplete: "address-line1" },
-              { name: "address2", label: "Address 2 (optional)", autoComplete: "address-line2" },
-            ] as const
-          ).map((item) => (
-            <Controller
-              key={item.name}
-              control={form.control}
-              name={item.name}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  id={`address-${item.name}`}
-                  label={item.label}
-                  autoComplete={item.autoComplete}
-                  placeholder="Enter address"
-                  error={fieldState.error?.message}
-                />
-              )}
-            />
-          ))}
-        </div>
-        <Controller
-          control={form.control}
-          name="zip"
-          render={({ field, fieldState }) => (
-            <TextField
-              {...field}
-              id="address-zip"
-              label="Zip / postal code"
-              autoComplete="postal-code"
-              placeholder="Enter code"
-              error={fieldState.error?.message}
-            />
-          )}
+        {(
+          [
+            {
+              name: "address1",
+              label: "Address",
+              autoComplete: "address-line1",
+              placeholder: "House number and street",
+            },
+            { name: "address2", label: "Address 2 (optional)", autoComplete: "address-line2", placeholder: "" },
+            { name: "city", label: "City", autoComplete: "address-level2", placeholder: "e.g. Ikeja" },
+            { name: "state", label: "State", autoComplete: "address-level1", placeholder: "e.g. Lagos" },
+            { name: "zip", label: "Postal code (optional)", autoComplete: "postal-code", placeholder: "" },
+          ] as const
+        ).map((item) => (
+          <Controller
+            key={item.name}
+            control={form.control}
+            name={item.name}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                id={`address-${item.name}`}
+                label={item.label}
+                autoComplete={item.autoComplete}
+                placeholder={item.placeholder}
+                error={fieldState.error?.message}
+              />
+            )}
+          />
+        ))}
+        <FormActions
+          onCancel={() => form.reset(addressValues(user))}
+          disabled={!form.formState.isDirty}
+          isPending={updateProfile.isPending}
         />
-        <FormActions onCancel={() => form.reset(settings.address)} />
       </form>
     </SettingsPanel>
   );
 }
+
+export function AddressCard() {
+  const { data: user } = useCurrentUser();
+  return user ? <AddressForm key={user.id} user={user} /> : null;
+}
+
 export function PrivacyCard() {
   const settings = useSettings();
   const [visibility, setVisibility] = useState(settings.visibility);
@@ -463,12 +462,16 @@ function DeleteAccountDialog() {
     </div>
   );
 }
-export function DeleteAccountCard() {
+export function DeleteAccountCard({ corporate = false }: { corporate?: boolean }) {
   const [confirmed, setConfirmed] = useState(false);
   return (
     <SettingsPanel
-      title="Delete your account"
-      description="Deleting your account removes access to account services and schedules deletion of personal data, with a 14-day cancellation window. Account deletion is unavailable in this preview."
+      title={corporate ? "Close company account" : "Delete your account"}
+      description={
+        corporate
+          ? "Closing the account removes access for everyone acting for the company and schedules deletion of its data, with a 14-day cancellation window. Account closure is unavailable in this preview."
+          : "Deleting your account removes access to account services and schedules deletion of personal data, with a 14-day cancellation window. Account deletion is unavailable in this preview."
+      }
       className="ring-destructive/25"
     >
       <label className="flex cursor-pointer items-start gap-3 text-sm/5">
@@ -494,30 +497,39 @@ export function DeleteAccountCard() {
   );
 }
 
-const OPTIONAL_TOPICS: { topic: NotificationTopic; description: string }[] = [
-  { topic: "wallet", description: "Deposits and withdrawals" },
-  { topic: "investments", description: "New properties and investment activity" },
-];
+const CHANNELS = [
+  { key: "emailNotifications", label: "Email", description: "Account activity and updates by email" },
+  { key: "smsNotifications", label: "SMS", description: "Text messages to your phone" },
+  { key: "pushNotifications", label: "Push", description: "Alerts on your devices" },
+] as const;
 
 function NotificationPreferencesCard() {
-  const [enabled, setEnabled] = useState<NotificationTopic[]>(DEFAULT_NOTIFICATION_PREFERENCES);
+  const { data: user } = useCurrentUser();
+  const updateProfile = useUpdateProfile();
+  const preferences = {
+    emailNotifications: user?.preferences?.emailNotifications ?? true,
+    smsNotifications: user?.preferences?.smsNotifications ?? true,
+    pushNotifications: user?.preferences?.pushNotifications ?? true,
+  };
+
   return (
     <SettingsPanel
       title="Notifications"
-      description="Choose which optional updates you want to receive. Essential account and security messages stay enabled."
+      description="Choose how we reach you. Essential account and security messages are always sent."
     >
       <ul className="divide-y divide-border">
-        {OPTIONAL_TOPICS.map(({ topic, description }) => (
-          <li key={topic} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-            <label htmlFor={`notify-${topic}`} className="min-w-0 cursor-pointer">
-              <span className="block text-sm font-semibold">{NOTIFICATION_TOPIC_LABELS[topic]}</span>
+        {CHANNELS.map(({ key, label, description }) => (
+          <li key={key} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+            <label htmlFor={`notify-${key}`} className="min-w-0 cursor-pointer">
+              <span className="block text-sm font-semibold">{label}</span>
               <span className="block text-xs text-muted-foreground">{description}</span>
             </label>
             <Switch
-              id={`notify-${topic}`}
-              checked={enabled.includes(topic)}
+              id={`notify-${key}`}
+              checked={preferences[key]}
+              disabled={!user || updateProfile.isPending}
               onCheckedChange={(checked) =>
-                setEnabled((current) => (checked ? [...current, topic] : current.filter((t) => t !== topic)))
+                updateProfile.mutate({ preferences: { ...preferences, [key]: checked } }, { onError: showError })
               }
             />
           </li>
@@ -527,15 +539,55 @@ function NotificationPreferencesCard() {
   );
 }
 
+function VerifyButton() {
+  const { data: user } = useCurrentUser();
+  const { data: kyc } = useKycState();
+  if (!user || !kyc || user.kycCompleted || kyc.status === "in_review" || kyc.status === "approved") return null;
+  const label =
+    kyc.status === "rejected"
+      ? "Review verification"
+      : user.accountType === "corporate"
+        ? "Verify business"
+        : "Verify identity";
+  return (
+    <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/onboarding" />} nativeButton={false}>
+      {label}
+    </Button>
+  );
+}
+
 export default function Client$SettingsPage() {
+  const { data: user } = useCurrentUser();
+  const corporate = user?.accountType === "corporate";
+
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SettingsNavigation />
-        <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/onboarding" />} nativeButton={false}>
-          Verify identity
-        </Button>
+        <VerifyButton />
       </div>
+      {corporate ? (
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
+          <div className="flex min-w-0 flex-col gap-5">
+            <CompanyCard />
+            <ProfileCard corporate />
+          </div>
+          <div className="flex min-w-0 flex-col gap-5">
+            <CompanyProfileCard className="rounded-2xl ring-1 ring-foreground/8" />
+            <NotificationPreferencesCard />
+            <DeleteAccountCard corporate />
+          </div>
+        </div>
+      ) : (
+        <PersonalSettings />
+      )}
+    </>
+  );
+}
+
+function PersonalSettings() {
+  return (
+    <>
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <ProfileCard />
         <div className="flex min-w-0 flex-col gap-5">

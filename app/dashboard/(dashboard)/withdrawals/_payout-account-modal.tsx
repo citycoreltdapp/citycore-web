@@ -9,8 +9,7 @@ import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
 import { transactionPinSchema } from "@/constant/schemas/common";
 import { type BankAccount, bankAccountSchema, savePayoutAccountRequestSchema } from "@/constant/schemas/finance";
-import { API_ROUTES } from "@/lib/api";
-import { useApiMutation } from "@/lib/query";
+import { useMockMutation } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -76,13 +75,11 @@ function PayoutAccountFormBody({
     },
   });
   const draft = useWatch({ control: form.control });
-  const saveAccount = useApiMutation({
-    path: API_ROUTES.payoutAccount,
-    method: "put",
+  const saveAccount = useMockMutation({
     bodySchema: savePayoutAccountRequestSchema,
     schema: bankAccountSchema,
     mock: (body: { account: BankAccount }) => body.account,
-    invalidates: [API_ROUTES.wallet],
+    invalidates: ["wallet"],
   });
 
   const save = ({ pin, ...account }: PayoutAccountForm) => {

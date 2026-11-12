@@ -36,3 +36,11 @@ export const phoneNumberToString = (phoneNumber: PhoneNumber) => {
 
   return `+${phone[0]} ${phoneNumber.number.replace(/\D/g, "")}`;
 };
+
+export const phoneNumberFromE164 = (value: string | null | undefined): PhoneNumber => {
+  if (!value) return EMPTY_PHONE_NUMBER;
+  const parsed = parse({ number: value, countryCode: DEFAULT_PHONE_COUNTRY });
+  return parsed?.country
+    ? { number: parsed.formatNational(), countryCode: parsed.country }
+    : { number: value, countryCode: DEFAULT_PHONE_COUNTRY };
+};

@@ -26,6 +26,13 @@
   /* Not in the brand deck: status colours muted to sit beside copper without adding another accent. */
   --success: #2f6b4a;
   --warning: #8a5a1e;
+  --error: var(--destructive);
+  /* Toast surfaces: each status tinted onto the card colour. */
+  --toast-info: #efe7dd;
+  --toast-success: #e6eee5;
+  --toast-warning: #f3e9da;
+  --toast-error: #f7e4df;
+  --toast-foreground: #4f473f;
   --border: #e4dbd1;
   --input: #d9cdbf;
   --ring: #b87643;
@@ -82,6 +89,12 @@
   --destructive-foreground: #f3eee7;
   --success: #86c29b;
   --warning: #e5b567;
+  --error: var(--destructive);
+  --toast-info: #1c1915;
+  --toast-success: #142019;
+  --toast-warning: #241c10;
+  --toast-error: #261413;
+  --toast-foreground: #bfaf9f;
   --border: #2b2622;
   --input: #3a332c;
   --ring: #d0a07c;
@@ -136,6 +149,12 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-toast-info: var(--toast-info);
+  --color-toast-success: var(--toast-success);
+  --color-toast-warning: var(--toast-warning);
+  --color-toast-error: var(--toast-error);
+  --color-toast-foreground: var(--toast-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { AppModalProvider } from "@/components/primitives/app-modal";
 import { Toaster } from "@/components/ui/sonner";
+import { Toaster as ToastViewportHost } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { makeQueryClient } from "@/lib/query";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -25,6 +26,7 @@ export function Providers({ children, forcedTheme }: { children: React.ReactNode
           <AppModalProvider>
             {children}
             <Toaster position="bottom-right" />
+            <ToastViewportHost />
           </AppModalProvider>
         </TooltipProvider>
       </ThemeProvider>

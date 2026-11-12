@@ -2,8 +2,15 @@ import { z } from "zod";
 
 import { REFERRAL_CODE_PATTERN } from "./schemas/referrals";
 
+export const SESSION_COOKIE = "citycore_session";
+
 const email = z.string().trim().toLowerCase().pipe(z.email("Enter a valid email address"));
-const newPassword = z.string().min(8, "Password must be at least 8 characters");
+const newPassword = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .refine((value) => new TextEncoder().encode(value).length <= 72, "Password must be at most 72 bytes")
+  .regex(/[a-zA-Z]/, "Password must contain a letter")
+  .regex(/\d/, "Password must contain a number");
 
 const passwordsMatch = {
   check: (data: { password: string; confirmPassword: string }) => data.password === data.confirmPassword,

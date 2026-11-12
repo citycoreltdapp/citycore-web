@@ -15,22 +15,17 @@ export const NIN_PATTERN = /^\d{11}$/;
 export const kycStatusSchema = z.enum(["notStarted", "pending", "verified", "actionRequired"]);
 export type KycStatus = z.infer<typeof kycStatusSchema>;
 
-const ninSchema = z.string().trim().regex(NIN_PATTERN, "NIN must be 11 digits");
-
-/** Mobile `NinIdentity`: the record returned for a NIN. Shown read-only, so it's only ever set from a lookup. */
 export const ninIdentitySchema = z.object({
-  nin: ninSchema,
-  firstName: z.string().min(1),
-  surname: z.string().min(1),
-  dateOfBirth: z.iso.date(),
-  phone: z.string().min(1),
+  firstName: z.string().nullable(),
+  middleName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  dateOfBirth: z.date().nullable(),
+  phone: z.string().nullable(),
 });
 export type NinIdentity = z.infer<typeof ninIdentitySchema>;
-export const ninLookupRequestSchema = z.object({ nin: ninSchema });
 
-// The NIN field locks once `identity` is found, so the two can't drift apart.
 export const identitySchema = z.object({
-  nin: ninSchema,
+  nin: z.string(),
   identity: ninIdentitySchema.nullable().refine((v) => v !== null, "Find your identity details to continue"),
   address: required("Address"),
   city: required("City"),
@@ -38,25 +33,14 @@ export const identitySchema = z.object({
   lgaOfResidence: required("Local government area"),
 });
 
-export const selfieSchema = z.object({ selfie: requiredFile("A selfie") });
+export const selfieSchema = z.object({ selfie: z.instanceof(File).nullable() });
 
 export const addressProofSchema = z.object({
-  utilityBill: requiredFile("A utility bill"),
+  utilityBill: z.instanceof(File).nullable(),
   confirmed: z.boolean().refine(Boolean, "Confirm your details before submitting"),
 });
 
 export const onboardingSchema = identitySchema.extend(selfieSchema.shape).extend(addressProofSchema.shape);
-
-/** Web-only: what the web posts once verification is complete. Mobile keeps this draft locally for now. */
-export const kycSubmissionRequestSchema = z.object({
-  nin: ninSchema,
-  address: required("Address"),
-  city: required("City"),
-  stateOfResidence: required("State"),
-  lgaOfResidence: required("Local government area"),
-  selfie: z.instanceof(File),
-  utilityBill: z.instanceof(File),
-});
 
 /** What the form holds while it's being filled in, so a file can still be empty. */
 export type OnboardingFormData = z.input<typeof onboardingSchema>;

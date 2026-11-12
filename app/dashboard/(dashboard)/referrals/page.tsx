@@ -12,8 +12,7 @@ import {
   type ReferralEarning,
   referralDashboardResponseSchema,
 } from "@/constant/schemas/referrals";
-import { API_ROUTES } from "@/lib/api";
-import { useApiQuery } from "@/lib/query";
+import { useMockQuery } from "@/lib/query";
 import { REFERRAL_DASHBOARD, REFERRAL_PLAN, referralTotals } from "@/lib/referrals";
 import { useReferredBy } from "@/lib/referred-by";
 import {
@@ -521,8 +520,8 @@ function PlanCard() {
 }
 
 export default function Client$ReferralsPage() {
-  const { data } = useApiQuery({
-    path: API_ROUTES.referrals,
+  const { data } = useMockQuery({
+    key: "referrals",
     schema: referralDashboardResponseSchema,
     mock: REFERRAL_DASHBOARD,
   });

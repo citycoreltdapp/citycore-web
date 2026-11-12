@@ -7,9 +7,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
     <SettingsProvider>
       <header className="space-y-1.5">
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Preview: changes stay in this settings session. Account services are not connected yet.
-        </p>
+        <p className="text-sm text-muted-foreground">Manage your profile, address, security and notifications.</p>
       </header>
       {children}
     </SettingsProvider>

@@ -6,12 +6,10 @@ import type { z } from "zod";
 import { clearSession, getAccessToken, hasSession, setSession } from "./auth-tokens";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/+$/, "") || null;
-export const isMockApi = !API_BASE_URL;
 
 export class ApiError extends Error {
   constructor(
     message: string,
-    /** 0 when the request never got a response. */
     readonly status: number,
     readonly code = "API_ERROR",
     readonly details?: unknown
@@ -21,7 +19,6 @@ export class ApiError extends Error {
   }
 }
 
-/** The server's pagination block on list endpoints. */
 export interface ApiMeta {
   page: number;
   limit: number;
@@ -47,7 +44,6 @@ const record = (value: unknown) =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : undefined;
 const text = (value: unknown) => (typeof value === "string" ? value : undefined);
 
-/** Errors are `{ success: false, message, code, errors?: [{ path, message }] }`. */
 function readApiError(body: unknown, status: number): ApiError {
   const root = record(body);
   const fields = Array.isArray(root?.errors) ? root.errors : undefined;
@@ -63,7 +59,6 @@ const http = ky.create({
   prefix: API_BASE_URL ?? undefined,
   credentials: "include",
   timeout: 30_000,
-  // POST and PATCH only retry with an idempotency key; see send().
   retry: { limit: 2, methods: ["get", "put", "delete", "head"], statusCodes: [408, 429, 500, 502, 503, 504] },
   hooks: {
     beforeRequest: [
@@ -77,7 +72,6 @@ const http = ky.create({
 
 let refreshing: Promise<boolean> | null = null;
 
-/** Trades the refresh cookie for a new access token, once for every request waiting on it. */
 export function refreshSession() {
   refreshing ??= http
     .post("auth/refresh", { retry: 0, timeout: 15_000 })
@@ -99,9 +93,7 @@ export function refreshSession() {
 
 export interface RequestConfig<T> {
   schema?: z.ZodType<T>;
-  /** null and undefined are dropped. */
   query?: Record<string, string | number | boolean | null | undefined>;
-  /** Sent as Idempotency-Key, which also makes a POST or PATCH safe to retry. */
   idempotencyKey?: string;
   headers?: Record<string, string>;
   signal?: AbortSignal;
@@ -116,7 +108,6 @@ async function send<T>(
 
   const { schema, query, idempotencyKey } = config;
   const route = path.replace(/^\/+/, "");
-  // Auth endpoints answer 401 for wrong credentials, which a refresh can't fix.
   const canRefresh = !route.startsWith("auth/");
   const options: Options = {
     method,
@@ -133,7 +124,6 @@ async function send<T>(
     ...(idempotencyKey && { retry: { limit: 2, methods: [method.toLowerCase() as "post"] } }),
   };
 
-  // After a reload the access token is gone but the cookie isn't, so get one before the first call.
   if (canRefresh && !getAccessToken() && hasSession()) await refreshSession();
 
   const attempt = async (refreshed: boolean): Promise<ApiResult<T>> => {
@@ -194,13 +184,20 @@ export const api = {
   delete<T>(path: string, config: RequestConfig<T> = {}) {
     return send<T>("DELETE", path, config);
   },
-  upload<T>(path: string, form: FormData, config: RequestConfig<T> = {}) {
-    return send<T>("POST", path, { ...config, body: form });
+  upload<T>(
+    path: string,
+    form: FormData,
+    { method = "POST", ...config }: RequestConfig<T> & { method?: "POST" | "PUT" } = {}
+  ) {
+    return send<T>(method, path, { ...config, body: form });
   },
 };
 
-/** Revokes the refresh cookie on the server, then forgets the session here even if that call fails. */
-export async function signOut() {
-  if (API_BASE_URL) await http.post("auth/logout", { retry: 0, timeout: 10_000 }).catch(() => undefined);
-  clearSession();
+export function fieldErrors(error: ApiError): Record<string, string> {
+  if (!Array.isArray(error.details)) return {};
+  return Object.fromEntries(
+    error.details
+      .filter((detail): detail is { path: string; message: string } => typeof detail?.path === "string")
+      .map(({ path, message }) => [path.replace(/^body\./, ""), message])
+  );
 }
