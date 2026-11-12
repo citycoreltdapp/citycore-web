@@ -11,8 +11,13 @@ const passwordsMatch = {
   params: { path: ["confirmPassword"], message: "Passwords don't match", when: () => true },
 };
 
+export const ACCOUNT_TYPES = ["personal", "corporate", "esp", "staff"] as const;
+export const accountTypeSchema = z.enum(ACCOUNT_TYPES);
+export type AccountType = z.infer<typeof accountTypeSchema>;
+
 export const signUpSchema = z
   .object({
+    accountType: accountTypeSchema,
     referrer: z
       .string()
       .trim()

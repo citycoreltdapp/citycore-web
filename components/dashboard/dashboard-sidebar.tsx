@@ -16,6 +16,7 @@ import {
   SidebarProvider,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { signOut } from "@/lib/api-client";
 import { type NavGroup, dashboardNavGroups } from "@/lib/dashboard-nav";
 import { ArrowDown01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -207,7 +208,7 @@ export function DashboardSidebar({
           title: "Log out?",
           description: "You'll need to sign in again to get back in.",
           confirmLabel: "Log out",
-          onConfirm: () => router.push("/dashboard/signin"),
+          onConfirm: () => signOut().then(() => router.push("/dashboard/signin")),
         })
       }
     />

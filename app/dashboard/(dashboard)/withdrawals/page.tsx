@@ -9,7 +9,7 @@ import { OtpField } from "@/components/primitives/otp-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { withdrawRequestSchema } from "@/constant/schemas/finance";
+import { transactionSchema, withdrawRequestSchema } from "@/constant/schemas/finance";
 import {
   SETTLEMENT_STEPS,
   WITHDRAWAL_FEE,
@@ -18,7 +18,8 @@ import {
   withdrawalDetailsSchema,
   withdrawalSchema,
 } from "@/constant/withdrawal";
-import { toApi } from "@/lib/api";
+import { API_ROUTES } from "@/lib/api";
+import { useApiMutation } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CheckmarkBadge01Icon, LockKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -318,17 +319,38 @@ export default function Client$WithdrawalsPage() {
     }
   }, [isReviewed, form]);
 
-  const confirmWithdrawal = ({ amount, pin, authenticatorCode }: WithdrawalFormData) => {
-    toApi(withdrawRequestSchema, {
-      amount,
-      pin,
-      authenticatorCode: authenticatorCode || undefined,
-      idempotencyKey: crypto.randomUUID(),
-    });
-    toast.success(`${formatNaira(amount)} is on its way to ${payout?.bankName}.`);
-    form.reset();
-    setReviewedKey(null);
-  };
+  const withdraw = useApiMutation({
+    path: API_ROUTES.withdraw,
+    bodySchema: withdrawRequestSchema,
+    schema: transactionSchema,
+    // Mock reply until NEXT_PUBLIC_API_URL is set: the pending debit the API would return.
+    mock: (body: { amount: number }) => ({
+      id: `TX-${crypto.randomUUID().slice(0, 8)}`,
+      title: `Withdrawal to ${payout?.bankName ?? "bank"}`,
+      type: "withdrawal",
+      status: "pending",
+      amount: -body.amount,
+      date: new Date().toISOString(),
+    }),
+    invalidates: [API_ROUTES.wallet, API_ROUTES.walletTransactions],
+  });
+
+  const confirmWithdrawal = ({ amount, pin, authenticatorCode }: WithdrawalFormData) =>
+    withdraw.mutate(
+      // One key per confirmation, so a retried request can't withdraw twice.
+      { amount, pin, authenticatorCode: authenticatorCode || undefined, idempotencyKey: crypto.randomUUID() },
+      {
+        onSuccess: () => {
+          toast.success(`${formatNaira(amount)} is on its way to ${payout?.bankName}.`);
+          form.reset();
+          setReviewedKey(null);
+        },
+        onError: (error) => {
+          form.resetField("pin");
+          toast.error(error.message);
+        },
+      }
+    );
 
   return (
     <>
@@ -350,7 +372,7 @@ export default function Client$WithdrawalsPage() {
           noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            if (canConfirm) form.handleSubmit(confirmWithdrawal)(event);
+            if (canConfirm && !withdraw.isPending) form.handleSubmit(confirmWithdrawal)(event);
           }}
           className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_1fr]"
         >
@@ -368,7 +390,7 @@ export default function Client$WithdrawalsPage() {
               totalDebit={totalDebit}
               isReviewable={isReviewable}
               isReviewed={isReviewed}
-              canConfirm={canConfirm}
+              canConfirm={canConfirm && !withdraw.isPending}
               onReview={() => setReviewedKey(detailsKey)}
             />
           </aside>

@@ -4,6 +4,7 @@ import { AppModal } from "@/components/primitives/app-modal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import type { KycStatus } from "@/constant/onboarding";
+import { signOut } from "@/lib/api-client";
 import { useKycStatus } from "@/lib/verification-status";
 import { ArrowRight01Icon, Logout01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -77,7 +78,7 @@ export function SidebarAccount() {
               title: "Log out?",
               description: "You'll need to sign in again to get back in.",
               confirmLabel: "Log out",
-              onConfirm: () => router.push("/dashboard/signin"),
+              onConfirm: () => signOut().then(() => router.push("/dashboard/signin")),
             })
           }
           className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"

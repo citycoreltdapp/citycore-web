@@ -1,6 +1,5 @@
 import type * as React from "react";
 
-import { Google } from "@/components/icon";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { ArrowLeft02Icon, Cancel01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -133,8 +132,6 @@ interface AuthFormProps {
   /** Shown in a tinted circle above the title. */
   icon?: React.ReactNode;
   onSubmit: React.FormEventHandler<HTMLFormElement>;
-  /** Adds the "or" divider and the Google button. */
-  onGoogle?: () => void;
   /** Adds a close button that clears the errors. Pass it only while there are errors. */
   onDismissErrors?: () => void;
   submitLabel: string;
@@ -154,7 +151,6 @@ export function AuthForm({
   subtitle,
   icon,
   onSubmit,
-  onGoogle,
   onDismissErrors,
   submitLabel,
   isPending,
@@ -201,27 +197,6 @@ export function AuthForm({
           {submitLabel}
         </Button>
       </form>
-
-      {onGoogle && (
-        <>
-          <div className="my-5 flex items-center gap-3 text-base text-muted-foreground">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending}
-            onClick={onGoogle}
-            className="h-12 w-full gap-2.5 rounded-lg bg-card text-base shadow-xs"
-          >
-            <Google className="size-5" />
-            Continue with Google
-          </Button>
-        </>
-      )}
 
       {footer && <p className="mt-10 text-center text-base text-primary/80">{footer}</p>}
     </div>

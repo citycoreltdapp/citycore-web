@@ -467,7 +467,11 @@ export default function InvestmentCheckoutPage() {
                 </div>
               ))}
             </dl>
-            <Button className="h-10 rounded-full px-5" render={<Link href="/dashboard/marketplace" />} nativeButton={false}>
+            <Button
+              className="h-10 rounded-full px-5"
+              render={<Link href="/dashboard/marketplace" />}
+              nativeButton={false}
+            >
               Back to marketplace
             </Button>
           </Card>

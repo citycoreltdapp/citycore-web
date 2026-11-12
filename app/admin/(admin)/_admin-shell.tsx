@@ -6,12 +6,64 @@ import { DashboardSidebarInset } from "@/components/dashboard/dashboard-sidebar-
 import { AppModal } from "@/components/primitives/app-modal";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { adminNavGroups } from "@/lib/admin-nav";
+import {
+  Analytics01Icon,
+  ArrowDataTransferHorizontalIcon,
+  AuditIcon,
+  Briefcase01Icon,
+  Coins01Icon,
+  CustomerSupportIcon,
+  Home01Icon,
+  Image01Icon,
+  Mail01Icon,
+  Megaphone01Icon,
+  News01Icon,
+  SecurityCheckIcon,
+  Settings02Icon,
+  UserAccountIcon,
+  UserListIcon,
+  UserMultipleIcon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
+
+import type { NavGroup } from "@/lib/dashboard-nav";
+
 import Image from "next/image";
 import Link from "next/link";
 import { toast } from "sonner";
 
 import { ADMIN_NOTIFICATIONS } from "./_data";
+
+export const adminNavGroups: NavGroup[] = [
+  {
+    label: "Navigation",
+    items: [
+      { title: "Dashboard", url: "/", icon: Home01Icon },
+      { title: "Account", url: "/account", icon: UserAccountIcon },
+      { title: "Users & Admins", url: "/users", icon: UserMultipleIcon },
+      { title: "Investors", url: "/users/management", icon: UserListIcon },
+      { title: "KYC Compliance", url: "/kyc", icon: SecurityCheckIcon },
+      { title: "Investments", url: "/investments", icon: Briefcase01Icon },
+      { title: "Returns & Maturity", url: "/returns", icon: Coins01Icon },
+      { title: "Withdrawals", url: "/withdrawals", icon: ArrowDataTransferHorizontalIcon },
+      { title: "Reports", url: "/reports", icon: Analytics01Icon },
+      { title: "Settings", url: "/settings", icon: Settings02Icon },
+      { title: "Helpdesk & Audit", url: "/content", icon: AuditIcon },
+      { title: "Support", url: "/support", icon: CustomerSupportIcon },
+    ],
+  },
+  {
+    label: "More",
+    items: [
+      { title: "Growth & Broadcasts", url: "/growth", icon: Megaphone01Icon },
+      { title: "Emails", url: "/emails", icon: Mail01Icon },
+      { title: "Blog", url: "/blog", icon: News01Icon },
+      { title: "Media library", url: "/media", icon: Image01Icon },
+      { title: "Platform Configuration", url: "/platform", icon: Wrench01Icon },
+    ],
+  },
+];
+
 
 // ponytail: there's no admin sign-in yet. Sign out through the API here once there is.
 const logOut = () =>

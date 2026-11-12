@@ -4,6 +4,9 @@ import { PasswordField } from "@/components/primitives/password-field";
 import { TextField } from "@/components/primitives/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
 import { type SignInFormData, signInSchema } from "@/constant/auth";
+import { API_ROUTES } from "@/lib/api";
+import { api, isMockApi } from "@/lib/api-client";
+import { setSession } from "@/lib/auth-tokens";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -11,8 +14,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { AuthForm, AuthShell } from "../_shared";
+
+const sessionSchema = z.object({ accessToken: z.string(), user: z.object({ kycCompleted: z.boolean() }) });
 
 export default function SignInPage() {
   const router = useRouter();
@@ -31,14 +37,24 @@ export default function SignInPage() {
       <AuthForm
         title="Welcome Back"
         subtitle="Sign in to your account"
-        // ponytail: no backend yet, so any valid input signs in. Call the sign-in API here and use
-        // form.setError("password", { message: "Password is incorrect" }) for a wrong password.
-        // Everyone goes through KYC for now. The API will say who has already done it, and they should go to "/".
-        onSubmit={form.handleSubmit(() => {
+        onSubmit={form.handleSubmit(async ({ email, password }) => {
+          // Mock mode signs anyone in, straight to onboarding.
+          if (isMockApi) {
+            form.reset();
+            router.push("/dashboard/onboarding");
+            return;
+          }
+          const result = await api.post(API_ROUTES.login, { email, password }, { schema: sessionSchema });
+          if (!result.ok) {
+            if (result.error.code === "INVALID_CREDENTIALS")
+              form.setError("password", { message: result.error.message });
+            else toast.error(result.error.message);
+            return;
+          }
+          setSession(result.data.accessToken);
           form.reset();
-          router.push("/dashboard/onboarding");
+          router.push(result.data.user.kycCompleted ? "/dashboard" : "/dashboard/onboarding");
         })}
-        onGoogle={() => toast.info("Google sign-in isn't connected to a backend yet.")}
         onDismissErrors={hasErrors ? () => form.clearErrors() : undefined}
         submitLabel="Sign in"
         isPending={form.formState.isSubmitting}

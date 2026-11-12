@@ -227,7 +227,7 @@ function SocialConnections() {
       <p className="text-sm text-muted-foreground">
         Connect a social account for sign-in. Social sign-in is not available in this preview.
       </p>
-      {["Google", "Apple"].map((provider) => (
+      {["Apple"].map((provider) => (
         <div key={provider} className="flex items-center justify-between gap-3 rounded-xl border p-4">
           <span className="text-sm font-semibold">{provider}</span>
           <Button

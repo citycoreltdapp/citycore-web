@@ -43,8 +43,8 @@ export const bankAccountSchema = z.object({
 export const walletSchema = z.object({
   balance: amountSchema,
   pendingWithdrawals: amountSchema.default(0),
-  /** The investor's dedicated account; bank transfers to it fund the wallet. */
-  fundingAccount: bankAccountSchema,
+  /** `null` until the investor requests one; bank transfers to it fund the wallet. */
+  fundingAccount: bankAccountSchema.nullable(),
   /** `null` until the investor adds one; withdrawals need it. */
   payoutAccount: bankAccountSchema.nullable(),
 });

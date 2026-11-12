@@ -163,7 +163,7 @@ function TransactionTables() {
   const { data: wallet } = useApiQuery({ path: API_ROUTES.wallet, schema: walletSchema, mock: WALLET });
   const accounts: WalletAccount[] = wallet
     ? [
-        { id: "funding", role: "Funding account", ...wallet.fundingAccount },
+        ...(wallet.fundingAccount ? [{ id: "funding", role: "Funding account", ...wallet.fundingAccount }] : []),
         ...(wallet.payoutAccount ? [{ id: "payout", role: "Payout account", ...wallet.payoutAccount }] : []),
       ]
     : [];

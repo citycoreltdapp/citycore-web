@@ -1,22 +1,21 @@
-import type { z } from "zod";
+import { z } from "zod";
 
-/**
- * The API speaks snake_case JSON, the same payloads the mobile app reads in its `fromJson` factories.
- * Schemas and UI code use the camelCase names of the mobile model fields; convert only at this boundary.
- */
+/** Paths on the CityCore API (citycore-server), relative to NEXT_PUBLIC_API_URL. */
 export const API_ROUTES = {
-  // Mirrors citycorerunner_app/lib/core/constants/app_constants.dart.
+  login: "/auth/login",
+  logout: "/auth/logout",
+  me: "/users/me",
+  wallet: "/wallet",
+  walletTransactions: "/wallet/transactions",
+  // Not on the server yet. These keep serving their mock data.
   dashboard: "/dashboard",
   properties: "/properties",
   property: (id: string) => `/properties/${encodeURIComponent(id)}`,
   invest: (id: string) => `/properties/${encodeURIComponent(id)}/invest`,
   holdings: "/portfolio/holdings",
   holding: (id: string) => `/portfolio/holdings/${encodeURIComponent(id)}`,
-  wallet: "/wallet",
-  walletTransactions: "/wallet/transactions",
   withdraw: "/wallet/withdraw",
   fundWithCard: "/wallet/fund/card",
-  // Not wired on mobile yet; the app serves these from mock services.
   payoutAccount: "/wallet/payout-account",
   ninLookup: "/kyc/nin",
   kycSubmission: "/kyc",
@@ -25,19 +24,78 @@ export const API_ROUTES = {
   notifications: "/notifications",
 } as const;
 
-const toCamel = (key: string) => key.replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase());
-const toSnake = (key: string) => key.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`);
+const kobo = (value: number) => value / 100;
 
-function mapKeys(value: unknown, rename: (key: string) => string): unknown {
-  if (Array.isArray(value)) return value.map((item) => mapKeys(item, rename));
-  if (value === null || typeof value !== "object" || value instanceof Date || value instanceof Blob) return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [rename(key), mapKeys(item, rename)]));
-}
+const serverWalletSchema = z
+  .object({
+    balance: z.number(),
+    virtualAccount: z.object({ bankName: z.string(), accountNumber: z.string(), accountName: z.string() }).nullable(),
+  })
+  .transform((wallet) => ({
+    balance: kobo(wallet.balance),
+    pendingWithdrawals: 0,
+    fundingAccount: wallet.virtualAccount,
+    payoutAccount: null,
+  }));
 
-/** Parses an API response. Never cast JSON to a type; parse it. */
-export const fromApi = <T extends z.ZodType>(schema: T, json: unknown): z.output<T> =>
-  schema.parse(mapKeys(json, toCamel));
+const TRANSACTION_TYPE = {
+  funding: "deposit",
+  referral_commission: "commission",
+  investment: "investment",
+  investment_return: "payout",
+  investment_principal: "payout",
+  investment_withdrawal: "withdrawal",
+} as const;
+const TRANSACTION_TITLE = {
+  funding: "Wallet funding",
+  referral_commission: "Referral commission",
+  investment: "Investment",
+  investment_return: "Investment return",
+  investment_principal: "Principal returned",
+  investment_withdrawal: "Investment withdrawal",
+} as const;
+const TRANSACTION_STATUS = {
+  success: "successful",
+  pending: "pending",
+  flagged: "pending",
+  failed: "failed",
+  abandoned: "failed",
+} as const;
 
-/** Validates a request payload and returns the snake_case body to send. */
-export const toApi = <T extends z.ZodType>(schema: T, payload: z.input<T>) =>
-  mapKeys(schema.parse(payload), toSnake) as Record<string, unknown>;
+const serverTransactionSchema = z
+  .object({
+    reference: z.string(),
+    type: z.enum([
+      "funding",
+      "referral_commission",
+      "investment",
+      "investment_return",
+      "investment_principal",
+      "investment_withdrawal",
+    ]),
+    direction: z.enum(["credit", "debit"]),
+    amount: z.number(),
+    status: z.enum(["pending", "success", "failed", "abandoned", "flagged"]),
+    paidAt: z.string().nullable(),
+    createdAt: z.string(),
+  })
+  .transform((tx) => ({
+    id: tx.reference,
+    title: TRANSACTION_TITLE[tx.type],
+    type: TRANSACTION_TYPE[tx.type],
+    status: TRANSACTION_STATUS[tx.status],
+    amount: (tx.direction === "debit" ? -1 : 1) * kobo(tx.amount),
+    date: tx.paidAt ?? tx.createdAt,
+  }));
+
+/**
+ * Routes connected to the server, each with the schema that turns its response into the shape the web schemas
+ * expect. Any route not listed serves its mock data, even with NEXT_PUBLIC_API_URL set.
+ */
+export const LIVE_ROUTES: Record<string, { schema: z.ZodType; query?: Record<string, string | number> }> = {
+  [API_ROUTES.wallet]: { schema: serverWalletSchema },
+  [API_ROUTES.walletTransactions]: {
+    schema: z.array(serverTransactionSchema),
+    query: { limit: 100, sort: "-createdAt" },
+  },
+};

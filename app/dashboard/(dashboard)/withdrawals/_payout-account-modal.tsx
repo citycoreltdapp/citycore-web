@@ -9,7 +9,8 @@ import { TextField } from "@/components/primitives/text-field";
 import { Button } from "@/components/ui/button";
 import { transactionPinSchema } from "@/constant/schemas/common";
 import { type BankAccount, bankAccountSchema, savePayoutAccountRequestSchema } from "@/constant/schemas/finance";
-import { toApi } from "@/lib/api";
+import { API_ROUTES } from "@/lib/api";
+import { useApiMutation } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LockKeyIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -75,6 +76,14 @@ function PayoutAccountFormBody({
     },
   });
   const draft = useWatch({ control: form.control });
+  const saveAccount = useApiMutation({
+    path: API_ROUTES.payoutAccount,
+    method: "put",
+    bodySchema: savePayoutAccountRequestSchema,
+    schema: bankAccountSchema,
+    mock: (body: { account: BankAccount }) => body.account,
+    invalidates: [API_ROUTES.wallet],
+  });
 
   const save = ({ pin, ...account }: PayoutAccountForm) => {
     const sameBank = findBank({ code: current?.bankCode, name: current?.bankName })?.code === account.bankCode;
@@ -82,11 +91,19 @@ function PayoutAccountFormBody({
       form.setError("accountNumber", { message: "This is already your payout account" });
       return;
     }
-    // ponytail: no payout-account endpoint yet; this only shapes the request the API will take.
-    toApi(savePayoutAccountRequestSchema, { account, pin });
-    form.resetField("pin");
-    onSave(account);
-    AppModal.close();
+    saveAccount.mutate(
+      { account, pin },
+      {
+        onSuccess: (saved) => {
+          onSave(saved);
+          AppModal.close();
+        },
+        onError: (error) => {
+          form.resetField("pin");
+          form.setError("pin", { message: error.message });
+        },
+      }
+    );
   };
 
   return (

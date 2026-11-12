@@ -1,9 +1,9 @@
 import { NIGERIAN_LGAS } from "@/constant/nigerian-lgas";
 import { z } from "zod";
 
-const required = (label: string) => z.string().trim().min(1, `${label} is required`);
+export const required = (label: string) => z.string().trim().min(1, `${label} is required`);
 
-const requiredFile = (label: string) =>
+export const requiredFile = (label: string) =>
   z
     .instanceof(File)
     .nullable()

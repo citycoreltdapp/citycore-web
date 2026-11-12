@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/components/ui/sidebar";
 import type { InboxMessage } from "@/constant/notifications";
+import { signOut } from "@/lib/api-client";
 import { ArrowLeft01Icon, ArrowRight01Icon, Menu01Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
@@ -107,7 +108,7 @@ export function DashboardHeader({ notifications, accountMenuItems }: DashboardHe
                       title: "Log out?",
                       description: "You'll need to sign in again to get back in.",
                       confirmLabel: "Log out",
-                      onConfirm: () => router.push("/dashboard/signin"),
+                      onConfirm: () => signOut().then(() => router.push("/dashboard/signin")),
                     })
                   }
                 >

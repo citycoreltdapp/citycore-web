@@ -14,10 +14,12 @@ import {
   fundWithCardRequestSchema,
   fundingFormSchema,
   transactionListResponseSchema,
+  transactionSchema,
   walletSchema,
 } from "@/constant/schemas/finance";
-import { API_ROUTES, toApi } from "@/lib/api";
-import { useApiQuery } from "@/lib/query";
+import { API_ROUTES } from "@/lib/api";
+import { isMockApi } from "@/lib/api-client";
+import { useApiMutation, useApiQuery } from "@/lib/query";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   AddCircleIcon,
@@ -159,7 +161,7 @@ function FundingDetailsCard({
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-semibold">{FUNDING_METHODS[key].label}</span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {key === "bank" && wallet
+                  {key === "bank" && wallet?.fundingAccount
                     ? `${wallet.fundingAccount.bankName} · reflects in minutes`
                     : FUNDING_METHODS[key].hint}
                 </span>
@@ -227,13 +229,29 @@ function FundingSection() {
   });
   const amount = useWatch({ control: form.control, name: "amount" });
   const methodKey = useWatch({ control: form.control, name: "method" });
+  const fund = useApiMutation({
+    path: API_ROUTES.fundWithCard,
+    bodySchema: fundWithCardRequestSchema,
+    schema: transactionSchema,
+    mock: null,
+    invalidates: [API_ROUTES.wallet, API_ROUTES.walletTransactions],
+  });
   return (
     <form
       noValidate
       className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]"
       onSubmit={form.handleSubmit(({ amount }) => {
-        toApi(fundWithCardRequestSchema, { amount });
-        toast.info("Card payments aren't connected to a payment partner yet.");
+        if (isMockApi) {
+          toast.info("Card payments aren't connected to a payment partner yet.");
+          return;
+        }
+        fund.mutate(
+          { amount, idempotencyKey: crypto.randomUUID() },
+          {
+            onSuccess: () => toast.success(`${formatNaira(amount)} is being added to your wallet.`),
+            onError: (error) => toast.error(error.message),
+          }
+        );
       })}
     >
       <Controller

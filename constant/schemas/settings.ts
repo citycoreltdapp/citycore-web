@@ -151,7 +151,7 @@ export const disableTwoFactorRequestSchema = z.strictObject({
   password: z.string().min(1),
   code: verificationCodeSchema,
 });
-export const socialProviderSchema = z.enum(["Google", "Apple"]);
+export const socialProviderSchema = z.enum(["Apple"]);
 export const socialConnectionsResponseSchema = z.array(
   z.object({ provider: socialProviderSchema, connected: z.boolean(), connectedAt: settingsTimestamp.nullable() })
 );

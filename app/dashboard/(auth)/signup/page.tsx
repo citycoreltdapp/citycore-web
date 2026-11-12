@@ -6,11 +6,20 @@ import { FieldError } from "@/components/primitives/field";
 import { PasswordField } from "@/components/primitives/password-field";
 import { TextField } from "@/components/primitives/text-field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { type SignUpFormData, signUpSchema } from "@/constant/auth";
+import { setAccountType } from "@/lib/account-type";
 import { ReferralCodeError, resolveReferralCode } from "@/lib/referrals";
 import { setReferredBy } from "@/lib/referred-by";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail01Icon, UserAdd01Icon } from "@hugeicons/core-free-icons";
+import {
+  Briefcase01Icon,
+  Building06Icon,
+  Mail01Icon,
+  Megaphone01Icon,
+  UserAdd01Icon,
+  UserIcon,
+} from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,6 +28,13 @@ import { toast } from "sonner";
 
 import { AuthForm, AuthInvestorsBanner, AuthShell } from "../_shared";
 
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: "personal", label: "Personal", hint: "Investor", icon: UserIcon },
+  { value: "corporate", label: "Corporate", hint: "Investor", icon: Building06Icon },
+  { value: "esp", label: "Executive Sales", hint: "Partner", icon: Briefcase01Icon },
+  { value: "staff", label: "Staff", hint: "Marketer", icon: Megaphone01Icon },
+] as const;
+
 function SignUpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,6 +42,7 @@ function SignUpForm() {
   const form = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
+      accountType: "personal",
       referrer: searchParams.get("ref")?.toUpperCase() ?? "",
       email: "",
       password: "",
@@ -41,7 +58,7 @@ function SignUpForm() {
     <AuthForm
       title="Get Started Now"
       subtitle="Let’s create your account"
-      onSubmit={form.handleSubmit(async ({ referrer: code }) => {
+      onSubmit={form.handleSubmit(async ({ accountType, referrer: code }) => {
         let referrer = null;
         if (code) {
           try {
@@ -54,11 +71,11 @@ function SignUpForm() {
           }
         }
         setReferredBy(referrer);
+        setAccountType(accountType);
         if (referrer) toast.success(`Referred by ${referrer.name}`);
         form.reset();
         router.push("/dashboard/signup/verify");
       })}
-      onGoogle={() => toast.info("Google sign-up isn't connected to a backend yet.")}
       onDismissErrors={hasErrors ? () => form.clearErrors() : undefined}
       submitLabel="Sign up"
       isPending={form.formState.isSubmitting}
@@ -72,6 +89,38 @@ function SignUpForm() {
         </>
       }
     >
+      <Controller
+        control={form.control}
+        name="accountType"
+        render={({ field }) => (
+          <fieldset className="flex min-w-0 flex-col gap-2">
+            <legend className="mb-2 text-sm">Sign up as</legend>
+            <RadioGroup
+              inputRef={field.ref}
+              value={field.value}
+              onValueChange={field.onChange}
+              className="grid-cols-2 gap-2.5"
+            >
+              {ACCOUNT_TYPE_OPTIONS.map(({ value, label, hint, icon }) => (
+                <label
+                  key={value}
+                  className="group/option flex cursor-pointer items-center gap-2.5 rounded-[10px] border border-border bg-card px-3 py-2.5 transition-[border-color,box-shadow,background-color] hover:border-primary/30 has-focus-visible:ring-3 has-focus-visible:ring-ring/50 has-data-checked:border-primary has-data-checked:bg-white has-data-checked:shadow-[0_1px_2px_rgba(18,18,18,0.06)]"
+                >
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-primary/70 transition-colors group-has-data-checked/option:bg-primary group-has-data-checked/option:text-primary-foreground">
+                    <HugeiconsIcon icon={icon} aria-hidden className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block truncate text-sm font-semibold">{label}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{hint}</span>
+                  </span>
+                  <RadioGroupItem value={value} className="focus-visible:ring-0" />
+                </label>
+              ))}
+            </RadioGroup>
+          </fieldset>
+        )}
+      />
+
       <Controller
         control={form.control}
         name="referrer"
